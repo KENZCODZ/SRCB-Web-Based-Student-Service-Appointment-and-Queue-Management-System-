@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # EduQueue: Web-Based Student Service Appointment & Queue Management System
 
 **EduQueue** is an integrated academic student services platform developed for **St. Rita's College of Balingasag (SRCB)**. It unifies **Appointment-Based Scheduling** and **On-Demand Walk-In Queue Management** with real-time transactional Email API notifications.
@@ -166,3 +167,7 @@ All seed accounts use the default password: **`password123`**
 ## 🖥️ Ubuntu Server Production Deployment
 
 For complete instructions on deploying with **Ubuntu Server, Nginx, PHP-FPM, MySQL, OpenSSH, and UFW Firewall**, refer to [DEPLOYMENT.md](DEPLOYMENT.md) or run the automated script in [deploy/setup_server.sh](deploy/setup_server.sh).
+=======
+# SRCB-Web-Based-Student-Service-Appointment-and-Queue-Management-System-
+ANOTHER PROJECT NANAMAN, ARAYYYY KOOOOO
+>>>>>>> 4545d1076c66a65fcb6f43af0d3e08f4b227c75c
