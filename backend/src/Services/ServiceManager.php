@@ -1,0 +1,287 @@
+<?php
+namespace App\Services;
+
+use App\Core\Database;
+use App\Core\Response;
+use PDO;
+
+class ServiceManager {
+    public static function getAllServices(bool $onlyActive = false, ?string $type = null, ?string $category = null): array {
+        $db = Database::getConnection();
+        $sql = "SELECT s.*, 
+                    (SELECT COUNT(*) FROM service_schedules ss WHERE ss.service_id = s.id AND ss.is_active = 1) AS active_schedules_count
+                FROM services s 
+                WHERE 1=1";
+        $params = [];
+
+        if ($onlyActive) {
+            $sql .= " AND s.is_active = 1";
+        }
+        if ($type && in_array($type, ['appointment', 'queue'], true)) {
+            $sql .= " AND s.service_type = :type";
+            $params['type'] = $type;
+        }
+        if ($category) {
+            $sql .= " AND s.category = :category";
+            $params['category'] = $category;
+        }
+
+        $sql .= " ORDER BY s.category ASC, s.name ASC";
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public static function getServiceById(int $id): ?array {
+        $db = Database::getConnection();
+        $stmt = $db->prepare("SELECT * FROM services WHERE id = :id LIMIT 1");
+        $stmt->execute(['id' => $id]);
+        $service = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$service) {
+            return null;
+        }
+
+        // Fetch schedules if appointment type
+        $schedStmt = $db->prepare("SELECT * FROM service_schedules WHERE service_id = :id ORDER BY day_of_week ASC");
+        $schedStmt->execute(['id' => $id]);
+        $service['schedules'] = $schedStmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return $service;
+    }
+
+    public static function createService(array $data, int $adminId): array {
+        $name = trim($data['name'] ?? '');
+        $code = strtoupper(trim($data['code'] ?? ''));
+        $type = trim($data['service_type'] ?? '');
+        $category = trim($data['category'] ?? 'General');
+        $location = trim($data['location_or_counter'] ?? '');
+        $duration = (int)($data['estimated_duration_mins'] ?? 15);
+        $capacity = (int)($data['max_daily_capacity'] ?? 50);
+        $requirements = trim($data['requirements'] ?? '');
+        $description = trim($data['description'] ?? '');
+
+        if (empty($name) || empty($code) || !in_array($type, ['appointment', 'queue'], true)) {
+            Response::error('Service name, unique code, and valid service type (appointment/queue) are required.', 422);
+        }
+
+        $db = Database::getConnection();
+        
+        // Check code uniqueness
+        $check = $db->prepare("SELECT id FROM services WHERE code = :code LIMIT 1");
+        $check->execute(['code' => $code]);
+        if ($check->fetch()) {
+            Response::error('A service with this code already exists.', 409);
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO services (name, code, description, category, service_type, location_or_counter, estimated_duration_mins, max_daily_capacity, requirements, is_active, created_at)
+            VALUES (:name, :code, :description, :category, :type, :location, :duration, :capacity, :requirements, 1, NOW())
+        ");
+
+        $stmt->execute([
+            'name'         => $name,
+            'code'         => $code,
+            'description'  => $description ?: null,
+            'category'     => $category ?: 'General',
+            'type'         => $type,
+            'location'     => $location ?: null,
+            'duration'     => $duration,
+            'capacity'     => $capacity,
+            'requirements' => $requirements ?: null,
+        ]);
+
+        $serviceId = (int)$db->lastInsertId();
+
+        // If default schedules provided for appointment service
+        if ($type === 'appointment' && !empty($data['schedules']) && is_array($data['schedules'])) {
+            self::updateServiceSchedules($serviceId, $data['schedules'], $adminId);
+        }
+
+        AuditService::log($adminId, 'CREATE_SERVICE', 'service', $serviceId, ['code' => $code, 'name' => $name]);
+
+        return self::getServiceById($serviceId);
+    }
+
+    public static function updateService(int $id, array $data, int $adminId): array {
+        $service = self::getServiceById($id);
+        if (!$service) {
+            Response::error('Service not found', 404);
+        }
+
+        $name = trim($data['name'] ?? $service['name']);
+        $code = strtoupper(trim($data['code'] ?? $service['code']));
+        $category = trim($data['category'] ?? $service['category']);
+        $location = trim($data['location_or_counter'] ?? $service['location_or_counter']);
+        $duration = (int)($data['estimated_duration_mins'] ?? $service['estimated_duration_mins']);
+        $capacity = (int)($data['max_daily_capacity'] ?? $service['max_daily_capacity']);
+        $requirements = trim($data['requirements'] ?? $service['requirements']);
+        $description = trim($data['description'] ?? $service['description']);
+        $isActive = isset($data['is_active']) ? (int)$data['is_active'] : (int)$service['is_active'];
+
+        $db = Database::getConnection();
+
+        // Check code uniqueness if changed
+        if ($code !== $service['code']) {
+            $check = $db->prepare("SELECT id FROM services WHERE code = :code AND id != :id LIMIT 1");
+            $check->execute(['code' => $code, 'id' => $id]);
+            if ($check->fetch()) {
+                Response::error('Another service with this code already exists.', 409);
+            }
+        }
+
+        $stmt = $db->prepare("
+            UPDATE services 
+            SET name = :name,
+                code = :code,
+                description = :description,
+                category = :category,
+                location_or_counter = :location,
+                estimated_duration_mins = :duration,
+                max_daily_capacity = :capacity,
+                requirements = :requirements,
+                is_active = :is_active
+            WHERE id = :id
+        ");
+
+        $stmt->execute([
+            'name'         => $name,
+            'code'         => $code,
+            'description'  => $description ?: null,
+            'category'     => $category,
+            'location'     => $location ?: null,
+            'duration'     => $duration,
+            'capacity'     => $capacity,
+            'requirements' => $requirements ?: null,
+            'is_active'    => $isActive,
+            'id'           => $id
+        ]);
+
+        if (isset($data['schedules']) && is_array($data['schedules'])) {
+            self::updateServiceSchedules($id, $data['schedules'], $adminId);
+        }
+
+        AuditService::log($adminId, 'UPDATE_SERVICE', 'service', $id, ['code' => $code]);
+
+        return self::getServiceById($id);
+    }
+
+    public static function toggleServiceActive(int $id, bool $isActive, int $adminId): array {
+        $db = Database::getConnection();
+        $stmt = $db->prepare("UPDATE services SET is_active = :is_active WHERE id = :id");
+        $stmt->execute(['is_active' => $isActive ? 1 : 0, 'id' => $id]);
+        
+        AuditService::log($adminId, $isActive ? 'ACTIVATE_SERVICE' : 'DEACTIVATE_SERVICE', 'service', $id);
+        return self::getServiceById($id);
+    }
+
+    public static function updateServiceSchedules(int $serviceId, array $schedules, int $adminId): void {
+        $db = Database::getConnection();
+        // Clear existing schedules
+        $db->prepare("DELETE FROM service_schedules WHERE service_id = :service_id")->execute(['service_id' => $serviceId]);
+
+        $insertStmt = $db->prepare("
+            INSERT INTO service_schedules (service_id, day_of_week, start_time, end_time, slot_duration_mins, max_students_per_slot, is_active, created_at)
+            VALUES (:service_id, :day_of_week, :start_time, :end_time, :slot_duration, :max_students, 1, NOW())
+        ");
+
+        foreach ($schedules as $sched) {
+            if (!isset($sched['day_of_week']) || empty($sched['start_time']) || empty($sched['end_time'])) {
+                continue;
+            }
+            $insertStmt->execute([
+                'service_id'    => $serviceId,
+                'day_of_week'   => (int)$sched['day_of_week'],
+                'start_time'    => $sched['start_time'],
+                'end_time'      => $sched['end_time'],
+                'slot_duration' => (int)($sched['slot_duration_mins'] ?? 30),
+                'max_students'  => (int)($sched['max_students_per_slot'] ?? 3)
+            ]);
+        }
+
+        AuditService::log($adminId, 'UPDATE_SCHEDULES', 'service', $serviceId);
+    }
+
+    /**
+     * Compute real available time slots for a given date and service
+     */
+    public static function getAvailableSlots(int $serviceId, string $date): array {
+        $service = self::getServiceById($serviceId);
+        if (!$service || $service['service_type'] !== 'appointment' || (int)$service['is_active'] !== 1) {
+            Response::error('Invalid or inactive appointment service.', 400);
+        }
+
+        // Validate date (must be today or future date)
+        $timestamp = strtotime($date);
+        if (!$timestamp) {
+            Response::error('Invalid date format. Expected YYYY-MM-DD.', 422);
+        }
+        $today = date('Y-m-d');
+        if ($date < $today) {
+            return []; // Cannot book in the past
+        }
+
+        $dayOfWeek = (int)date('w', $timestamp); // 0=Sunday, 6=Saturday
+
+        $db = Database::getConnection();
+        $schedStmt = $db->prepare("SELECT * FROM service_schedules WHERE service_id = :service_id AND day_of_week = :day AND is_active = 1 LIMIT 1");
+        $schedStmt->execute(['service_id' => $serviceId, 'day' => $dayOfWeek]);
+        $schedule = $schedStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$schedule) {
+            return []; // Service does not operate on this day
+        }
+
+        // Fetch existing booked appointments on this date
+        $bookedStmt = $db->prepare("
+            SELECT start_time, end_time, COUNT(*) as booked_count 
+            FROM appointments 
+            WHERE service_id = :service_id 
+              AND appointment_date = :date 
+              AND status IN ('pending', 'approved') 
+            GROUP BY start_time, end_time
+        ");
+        $bookedStmt->execute(['service_id' => $serviceId, 'date' => $date]);
+        $bookedCounts = [];
+        while ($row = $bookedStmt->fetch(PDO::FETCH_ASSOC)) {
+            $bookedCounts[$row['start_time']] = (int)$row['booked_count'];
+        }
+
+        // Generate discrete slots
+        $slotDuration = (int)$schedule['slot_duration_mins'];
+        $maxPerSlot = (int)$schedule['max_students_per_slot'];
+        $startSeconds = strtotime($schedule['start_time']);
+        $endSeconds = strtotime($schedule['end_time']);
+
+        $slots = [];
+        $current = $startSeconds;
+
+        while ($current + ($slotDuration * 60) <= $endSeconds) {
+            $slotStart = date('H:i:s', $current);
+            $slotEnd = date('H:i:s', $current + ($slotDuration * 60));
+            $slotStartHuman = date('h:i A', $current);
+            $slotEndHuman = date('h:i A', $current + ($slotDuration * 60));
+
+            $booked = $bookedCounts[$slotStart] ?? 0;
+            $availableCapacity = max(0, $maxPerSlot - $booked);
+
+            // If date is today, check if slot has already passed
+            $isPastSlot = ($date === $today && strtotime($slotStart) <= time());
+
+            $slots[] = [
+                'start_time'         => $slotStart,
+                'end_time'           => $slotEnd,
+                'start_time_human'   => $slotStartHuman,
+                'end_time_human'     => $slotEndHuman,
+                'max_capacity'       => $maxPerSlot,
+                'booked_count'       => $booked,
+                'available_capacity' => $availableCapacity,
+                'is_available'       => ($availableCapacity > 0 && !$isPastSlot)
+            ];
+
+            $current += ($slotDuration * 60);
+        }
+
+        return $slots;
+    }
+}

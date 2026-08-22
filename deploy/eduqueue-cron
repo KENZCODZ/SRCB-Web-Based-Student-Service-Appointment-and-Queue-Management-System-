@@ -1,0 +1,7 @@
+# =====================================================================
+# EduQueue System Cron Job (Ubuntu Server)
+# Copy to: /etc/cron.d/eduqueue
+# =====================================================================
+
+# Rotate and cleanup temporary logs once every Sunday at midnight
+0 0 * * 0 www-data find /var/www/eduqueue/backend/storage/logs -name "*.log" -mtime +30 -exec rm {} \;
