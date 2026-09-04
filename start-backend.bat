@@ -7,14 +7,14 @@ echo ========================================================
 :: Check if php is in system PATH
 where php >nul 2>nul
 if %errorlevel% equ 0 (
-    php -S localhost:8000 -t backend/public
+    php -S localhost:8000 -t backend/public backend/public/index.php
     goto end
 )
 
 :: Check Laragon PHP 8.3
 if exist "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" (
     echo Using Laragon PHP 8.3...
-    "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" -S localhost:8000 -t backend/public
+    "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" -S localhost:8000 -t backend/public backend/public/index.php
     goto end
 )
 
@@ -22,7 +22,7 @@ if exist "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" (
 for /d %%D in ("C:\laragon\bin\php\*") do (
     if exist "%%D\php.exe" (
         echo Using Laragon PHP from %%D...
-        "%%D\php.exe" -S localhost:8000 -t backend/public
+        "%%D\php.exe" -S localhost:8000 -t backend/public backend/public/index.php
         goto end
     )
 )
@@ -30,7 +30,7 @@ for /d %%D in ("C:\laragon\bin\php\*") do (
 :: Check XAMPP PHP
 if exist "C:\xampp\php\php.exe" (
     echo Using XAMPP PHP...
-    "C:\xampp\php\php.exe" -S localhost:8000 -t backend/public
+    "C:\xampp\php\php.exe" -S localhost:8000 -t backend/public backend/public/index.php
     goto end
 )
 

@@ -35,10 +35,15 @@ class Router {
     }
 
     public function dispatch(Request $request): void {
+        // Run global middleware first (e.g. CorsMiddleware)
+        foreach ($this->globalMiddleware as $mw) {
+            $this->executeMiddleware($mw, $request);
+        }
+
         $method = $request->getMethod();
         $uri = $request->getUri();
 
-        // Handle pre-flight CORS requests
+        // Handle pre-flight CORS requests after CORS headers are set
         if ($method === 'OPTIONS') {
             http_response_code(200);
             exit();
@@ -54,11 +59,6 @@ class Router {
 
             if (preg_match($pattern, $uri, $matches)) {
                 $params = array_filter($matches, 'is_string', ARRAY_FILTER_USE_KEY);
-
-                // Run global middleware
-                foreach ($this->globalMiddleware as $mw) {
-                    $this->executeMiddleware($mw, $request);
-                }
 
                 // Run route middleware
                 foreach ($route['middleware'] as $mw) {

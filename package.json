@@ -1,0 +1,23 @@
+{
+  "name": "srcb-web-based-student-service-and-queue-management-system",
+  "version": "1.0.0",
+  "description": "SRCB Web-Based Student Service Appointment and Queue Management System",
+  "private": true,
+  "scripts": {
+    "dev": "node dev.js",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "dev:backend": "php -S 0.0.0.0:8000 -t backend/public backend/public/index.php",
+    "build": "npm --prefix frontend run build",
+    "install:all": "npm --prefix frontend install"
+  },
+  "keywords": [
+    "appointment-system",
+    "queue-management",
+    "student-services",
+    "react",
+    "php",
+    "mysql"
+  ],
+  "author": "KENZCODZ",
+  "license": "MIT"
+}

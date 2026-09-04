@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # EduQueue: Web-Based Student Service Appointment & Queue Management System
 
 **EduQueue** is an integrated academic student services platform developed for **St. Rita's College of Balingasag (SRCB)**. It unifies **Appointment-Based Scheduling** and **On-Demand Walk-In Queue Management** with real-time transactional Email API notifications.
@@ -74,6 +73,10 @@ WEB_SYSTEMG2/
 │   ├── schema.sql                # Complete DDL tables & indexes
 │   └── seeds.sql                 # Initial seed accounts & services
 │
+├── dev.js                        # Unified local development server launcher
+├── package.json                  # Root npm scripts configuration
+├── start-all.bat                 # Windows batch launcher (interactive windows)
+├── start-backend.bat             # Windows backend batch launcher
 ├── deploy/                       # Ubuntu Server Deployment Assets
 │   ├── nginx.conf                # Production virtual host configuration
 │   ├── setup_server.sh           # Automated provisioning script
@@ -88,27 +91,25 @@ WEB_SYSTEMG2/
 ## 🚀 Quick Start Guide (Local Development)
 
 ### 1. Database Setup
-Ensure MySQL is running on port 3306, then import the database schema and seed data:
+Ensure MySQL is running (e.g. Laragon / XAMPP / MySQL Service), then import the database schema and seed data if not yet imported:
 ```bash
 mysql -u root -p < database/schema.sql
 mysql -u root -p < database/seeds.sql
 ```
+*(Verify that `backend/.env` has matching database credentials: `DB_DATABASE=student_services_db`, `DB_USERNAME=root`, `DB_PASSWORD=root` or your password).*
 
-### 2. Backend Setup
+### 2. Run Both Backend & Frontend with One Command
+From the project root directory, run:
 ```bash
-cd backend
-cp .env.example .env
-# Start the PHP built-in server or serve via Apache/Nginx
-php -S localhost:8000 -t public
-```
-
-### 3. Frontend Setup
-```bash
-cd frontend
-npm install
 npm run dev
 ```
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+This automatically:
+- Detects your PHP environment (PATH, Laragon, or XAMPP)
+- Starts the **PHP Backend API** on `http://localhost:8000`
+- Starts the **Vite React Frontend** on `http://localhost:5173`
+- Streams real-time colored logs for both services in the terminal
+
+Open **[http://localhost:5173](http://localhost:5173)** in your browser to access the application.
 
 ---
 
@@ -167,7 +168,4 @@ All seed accounts use the default password: **`password123`**
 ## 🖥️ Ubuntu Server Production Deployment
 
 For complete instructions on deploying with **Ubuntu Server, Nginx, PHP-FPM, MySQL, OpenSSH, and UFW Firewall**, refer to [DEPLOYMENT.md](DEPLOYMENT.md) or run the automated script in [deploy/setup_server.sh](deploy/setup_server.sh).
-=======
-# SRCB-Web-Based-Student-Service-Appointment-and-Queue-Management-System-
-ANOTHER PROJECT NANAMAN, ARAYYYY KOOOOO
->>>>>>> 4545d1076c66a65fcb6f43af0d3e08f4b227c75c
+
