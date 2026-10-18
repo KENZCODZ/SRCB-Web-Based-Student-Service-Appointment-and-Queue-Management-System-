@@ -51,3 +51,109 @@ BODY:
 </body>
 </html>
 --------------------------------------------------------------------------------
+[2026-10-18 12:15:41] TO: zeki-it@srcb.edu.ph (Ezekiel Boon Palicte) | SUBJECT: Appointment Confirmed: Guidance Counseling Session (APT-20261019-43E6) | TEMPLATE: appointment_approved
+BODY:
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Appointment Approved - APT-20261019-43E6</title>
+    <style>
+        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+        .header { background: #1e3a8a; padding: 24px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+        .header p { margin: 4px 0 0; font-size: 13px; color: #93c5fd; }
+        .content { padding: 28px 24px; line-height: 1.6; font-size: 15px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+        .badge-approved { background: #dcfce7; color: #166534; }
+        .badge-rejected { background: #fee2e2; color: #991b1b; }
+        .badge-rescheduled { background: #fef3c7; color: #92400e; }
+        .details-box { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 16px; margin: 18px 0; border-radius: 4px; }
+        .details-row { margin-bottom: 8px; font-size: 14px; }
+        .details-row:last-child { margin-bottom: 0; }
+        .details-label { font-weight: 600; color: #64748b; display: inline-block; width: 130px; }
+        .footer { background: #f8fafc; padding: 16px 24px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SRCB Student Services</h1>
+            <p>St. Rita's College of Balingasag</p>
+        </div>
+        <div class="content">
+                    <h2>Hello Ezekiel Boon,</h2>
+        <p>Great news! Your student service appointment has been <span class="badge badge-approved">Approved</span>.</p>
+        
+        <div class="details-box">
+            <div class="details-row"><span class="details-label">Appointment Code:</span> <strong>APT-20261019-43E6</strong></div>
+            <div class="details-row"><span class="details-label">Service:</span> Guidance Counseling Session</div>
+            <div class="details-row"><span class="details-label">Date:</span> October 19, 2026</div>
+            <div class="details-row"><span class="details-label">Time Window:</span> 11:15 AM - 12:00 PM</div>
+            <div class="details-row"><span class="details-label">Location / Counter:</span> Guidance Office - Room 204</div>
+        </div>
+
+        <p><strong>Required Documents to Bring:</strong><br>Student ID</p>
+        <p style="color: #64748b; font-size: 13px;">Please arrive 5–10 minutes before your scheduled time slot. Present your appointment code or student ID at the counter.</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 St. Rita's College of Balingasag - Student Service Portal. This is an automated email; please do not reply directly.</p>
+        </div>
+    </div>
+</body>
+</html>
+--------------------------------------------------------------------------------
+[2026-10-18 12:15:45] TO: student1@srcb.edu.ph (Juan Dela Cruz) | SUBJECT: Appointment Confirmed: Transcript of Records (TOR) Request (APT-20261019-552B) | TEMPLATE: appointment_approved
+BODY:
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Appointment Approved - APT-20261019-552B</title>
+    <style>
+        body { font-family: 'Segoe UI', Helvetica, Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+        .header { background: #1e3a8a; padding: 24px; text-align: center; color: #ffffff; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; }
+        .header p { margin: 4px 0 0; font-size: 13px; color: #93c5fd; }
+        .content { padding: 28px 24px; line-height: 1.6; font-size: 15px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 12px; text-transform: uppercase; }
+        .badge-approved { background: #dcfce7; color: #166534; }
+        .badge-rejected { background: #fee2e2; color: #991b1b; }
+        .badge-rescheduled { background: #fef3c7; color: #92400e; }
+        .details-box { background: #f8fafc; border-left: 4px solid #3b82f6; padding: 16px; margin: 18px 0; border-radius: 4px; }
+        .details-row { margin-bottom: 8px; font-size: 14px; }
+        .details-row:last-child { margin-bottom: 0; }
+        .details-label { font-weight: 600; color: #64748b; display: inline-block; width: 130px; }
+        .footer { background: #f8fafc; padding: 16px 24px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>SRCB Student Services</h1>
+            <p>St. Rita's College of Balingasag</p>
+        </div>
+        <div class="content">
+                    <h2>Hello Juan,</h2>
+        <p>Great news! Your student service appointment has been <span class="badge badge-approved">Approved</span>.</p>
+        
+        <div class="details-box">
+            <div class="details-row"><span class="details-label">Appointment Code:</span> <strong>APT-20261019-552B</strong></div>
+            <div class="details-row"><span class="details-label">Service:</span> Transcript of Records (TOR) Request</div>
+            <div class="details-row"><span class="details-label">Date:</span> October 19, 2026</div>
+            <div class="details-row"><span class="details-label">Time Window:</span> 08:00 AM - 08:30 AM</div>
+            <div class="details-row"><span class="details-label">Location / Counter:</span> Registrar Office - Window 1</div>
+        </div>
+
+        <p><strong>Required Documents to Bring:</strong><br>Clearance Form, 2x2 ID Picture, Valid Student ID</p>
+        <p style="color: #64748b; font-size: 13px;">Please arrive 5–10 minutes before your scheduled time slot. Present your appointment code or student ID at the counter.</p>
+        </div>
+        <div class="footer">
+            <p>&copy; 2026 St. Rita's College of Balingasag - Student Service Portal. This is an automated email; please do not reply directly.</p>
+        </div>
+    </div>
+</body>
+</html>
+--------------------------------------------------------------------------------

@@ -1,0 +1,141 @@
+@startuml
+title EduQueue: Web-Based Student Service Appointment and Queue Management System\nUse Case Diagram (SRCB S.Y. 2025-2026)
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam roundcorner 8
+skinparam defaultFontName "Arial, sans-serif"
+skinparam defaultFontSize 12
+
+skinparam actor {
+    BackgroundColor #EFF6FF
+    BorderColor #1E3A8A
+    FontColor #0F172A
+    FontStyle bold
+}
+
+skinparam usecase {
+    BackgroundColor #FFFFFF
+    BorderColor #2563EB
+    FontColor #1E293B
+    ArrowColor #3B82F6
+}
+
+skinparam rectangle {
+    BackgroundColor #F8FAFC
+    BorderColor #CBD5E1
+    FontColor #1E3A8A
+    FontStyle bold
+}
+
+' ==========================================
+' ACTORS
+' ==========================================
+actor "Student / Client" as Student
+actor "Department Staff" as Staff
+actor "System Administrator" as Admin
+actor "Public Lobby Monitor" as Display
+actor "Transactional Email Service\n(Resend / Brevo / SMTP)" as MailService <<External System>>
+
+' ==========================================
+' SYSTEM BOUNDARY
+' ==========================================
+rectangle "EduQueue System Boundary" {
+    
+    package "Authentication & Profile" {
+        usecase "Register Student Account" as UC_Reg
+        usecase "Login / Authenticate (JWT)" as UC_Login
+        usecase "Manage User Profile & Password" as UC_Profile
+    }
+
+    package "Student Self-Services" {
+        usecase "Browse Service Catalog" as UC_Browse
+        usecase "Check Available Time Slots" as UC_Slots
+        usecase "Book Service Appointment" as UC_Book
+        usecase "Cancel Pending Appointment" as UC_CancelApt
+        usecase "Join Walk-In Queue (Get Ticket)" as UC_JoinQueue
+        usecase "Track Live Queue Position & Wait Time" as UC_TrackQueue
+        usecase "Cancel Queue Ticket" as UC_CancelQueue
+        usecase "View Notifications" as UC_Notif
+    }
+
+    package "Staff Counter & Appointments" {
+        usecase "Review Student Appointments" as UC_ReviewApt
+        usecase "Approve Appointment Request" as UC_ApproveApt
+        usecase "Decline Appointment Request" as UC_DeclineApt
+        usecase "Reschedule Appointment Request" as UC_RescheduleApt
+        usecase "Call Next Waiting Student" as UC_CallNext
+        usecase "Serve & Finalize Queue Ticket" as UC_ServeComplete
+        usecase "Skip No-Show Ticket" as UC_SkipTicket
+    }
+
+    package "Public Kiosk & Display" {
+        usecase "View Real-Time Lobby Queue Display" as UC_LobbyDisplay
+    }
+
+    package "Administrative Control & Analytics" {
+        usecase "View Operational Dashboard & KPIs" as UC_DashStats
+        usecase "Manage Services & Operating Schedules" as UC_ManageServices
+        usecase "Provision User Accounts & Roles" as UC_ManageUsers
+        usecase "Inspect System Audit Logs" as UC_AuditLogs
+        usecase "Inspect Transactional Email Logs" as UC_EmailLogs
+    }
+
+    package "Automated Communication" {
+        usecase "Dispatch HTML Confirmation Email" as UC_SendEmail
+    }
+}
+
+' ==========================================
+' RELATIONSHIPS & ASSOCIATIONS
+' ==========================================
+
+' Student actor associations
+Student --> UC_Reg
+Student --> UC_Login
+Student --> UC_Profile
+Student --> UC_Browse
+Student --> UC_Slots
+Student --> UC_Book
+Student --> UC_CancelApt
+Student --> UC_JoinQueue
+Student --> UC_TrackQueue
+Student --> UC_CancelQueue
+Student --> UC_Notif
+
+' Staff actor associations
+Staff --> UC_Login
+Staff --> UC_Profile
+Staff --> UC_ReviewApt
+Staff --> UC_ApproveApt
+Staff --> UC_DeclineApt
+Staff --> UC_RescheduleApt
+Staff --> UC_CallNext
+Staff --> UC_ServeComplete
+Staff --> UC_SkipTicket
+
+' Admin actor inheritance & associations
+Admin --|> Staff
+Admin --> UC_DashStats
+Admin --> UC_ManageServices
+Admin --> UC_ManageUsers
+Admin --> UC_AuditLogs
+Admin --> UC_EmailLogs
+
+' Public Display association
+Display --> UC_LobbyDisplay
+
+' Use case dependencies & inclusions
+UC_Book .> UC_Slots : <<includes>>
+UC_ApproveApt ..> UC_SendEmail : <<triggers>>
+UC_DeclineApt ..> UC_SendEmail : <<triggers>>
+UC_RescheduleApt ..> UC_SendEmail : <<triggers>>
+
+UC_CallNext ..> UC_LobbyDisplay : <<updates>>
+UC_ServeComplete ..> UC_LobbyDisplay : <<updates>>
+
+' External service association
+UC_SendEmail --> MailService
+
+@enduml

@@ -49,6 +49,9 @@ if (file_exists($envPath)) {
     Env::load($envPath);
 }
 
+// Set application timezone (default to Philippine Standard Time: Asia/Manila)
+date_default_timezone_set(Env::get('APP_TIMEZONE', 'Asia/Manila'));
+
 // 4. Initialize Router & Global CORS Middleware
 $router = new Router();
 $router->addGlobalMiddleware(new CorsMiddleware());
@@ -90,6 +93,7 @@ $router->put('/api/appointments/{id}/cancel', [AppointmentController::class, 'ca
 // Queue (Student actions)
 $router->post('/api/queue/join', [QueueController::class, 'join'], $authMw);
 $router->get('/api/queue/my-active', [QueueController::class, 'myActive'], $authMw);
+$router->put('/api/queue/{id}/cancel', [QueueController::class, 'cancel'], $authMw);
 
 // -------------------------------------------------------------
 // STAFF & ADMIN ROUTES (Appointments & Queue Operations)

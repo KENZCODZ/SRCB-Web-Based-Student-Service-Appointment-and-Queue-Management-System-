@@ -30,7 +30,38 @@ class ServiceManager {
 
         $stmt = $db->prepare($sql);
         $stmt->execute($params);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $services = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!empty($services)) {
+            $schedSql = "SELECT * FROM service_schedules " . ($onlyActive ? "WHERE is_active = 1 " : "") . "ORDER BY day_of_week ASC";
+            $schedStmt = $db->query($schedSql);
+            $allSchedules = $schedStmt->fetchAll(PDO::FETCH_ASSOC);
+            $grouped = [];
+            foreach ($allSchedules as $sc) {
+                $grouped[(int)$sc['service_id']][] = [
+                    'id'                    => (int)$sc['id'],
+                    'service_id'            => (int)$sc['service_id'],
+                    'day_of_week'           => (int)$sc['day_of_week'],
+                    'start_time'            => $sc['start_time'],
+                    'end_time'              => $sc['end_time'],
+                    'slot_duration_mins'    => (int)$sc['slot_duration_mins'],
+                    'max_students_per_slot' => (int)$sc['max_students_per_slot'],
+                    'is_active'             => (int)$sc['is_active']
+                ];
+            }
+
+            foreach ($services as &$service) {
+                $service['id'] = (int)$service['id'];
+                $service['estimated_duration_mins'] = (int)$service['estimated_duration_mins'];
+                $service['max_daily_capacity'] = (int)$service['max_daily_capacity'];
+                $service['is_active'] = (int)$service['is_active'];
+                $service['active_schedules_count'] = (int)$service['active_schedules_count'];
+                $service['schedules'] = $grouped[$service['id']] ?? [];
+            }
+            unset($service);
+        }
+
+        return $services;
     }
 
     public static function getServiceById(int $id): ?array {
@@ -42,10 +73,26 @@ class ServiceManager {
             return null;
         }
 
+        $service['id'] = (int)$service['id'];
+        $service['estimated_duration_mins'] = (int)$service['estimated_duration_mins'];
+        $service['max_daily_capacity'] = (int)$service['max_daily_capacity'];
+        $service['is_active'] = (int)$service['is_active'];
+
         // Fetch schedules if appointment type
-        $schedStmt = $db->prepare("SELECT * FROM service_schedules WHERE service_id = :id ORDER BY day_of_week ASC");
+        $schedStmt = $db->prepare("SELECT * FROM service_schedules WHERE service_id = :id AND is_active = 1 ORDER BY day_of_week ASC");
         $schedStmt->execute(['id' => $id]);
-        $service['schedules'] = $schedStmt->fetchAll(PDO::FETCH_ASSOC);
+        $service['schedules'] = array_map(function($sc) {
+            return [
+                'id'                    => (int)$sc['id'],
+                'service_id'            => (int)$sc['service_id'],
+                'day_of_week'           => (int)$sc['day_of_week'],
+                'start_time'            => $sc['start_time'],
+                'end_time'              => $sc['end_time'],
+                'slot_duration_mins'    => (int)$sc['slot_duration_mins'],
+                'max_students_per_slot' => (int)$sc['max_students_per_slot'],
+                'is_active'             => (int)$sc['is_active']
+            ];
+        }, $schedStmt->fetchAll(PDO::FETCH_ASSOC));
 
         return $service;
     }
@@ -94,8 +141,17 @@ class ServiceManager {
         $serviceId = (int)$db->lastInsertId();
 
         // If default schedules provided for appointment service
-        if ($type === 'appointment' && !empty($data['schedules']) && is_array($data['schedules'])) {
-            self::updateServiceSchedules($serviceId, $data['schedules'], $adminId);
+        if ($type === 'appointment') {
+            $schedulesToSave = !empty($data['schedules']) && is_array($data['schedules'])
+                ? $data['schedules']
+                : [
+                    ['day_of_week' => 1, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'slot_duration_mins' => 30, 'max_students_per_slot' => 3],
+                    ['day_of_week' => 2, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'slot_duration_mins' => 30, 'max_students_per_slot' => 3],
+                    ['day_of_week' => 3, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'slot_duration_mins' => 30, 'max_students_per_slot' => 3],
+                    ['day_of_week' => 4, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'slot_duration_mins' => 30, 'max_students_per_slot' => 3],
+                    ['day_of_week' => 5, 'start_time' => '08:00:00', 'end_time' => '17:00:00', 'slot_duration_mins' => 30, 'max_students_per_slot' => 3],
+                ];
+            self::updateServiceSchedules($serviceId, $schedulesToSave, $adminId);
         }
 
         AuditService::log($adminId, 'CREATE_SERVICE', 'service', $serviceId, ['code' => $code, 'name' => $name]);
@@ -117,6 +173,7 @@ class ServiceManager {
         $capacity = (int)($data['max_daily_capacity'] ?? $service['max_daily_capacity']);
         $requirements = trim($data['requirements'] ?? $service['requirements']);
         $description = trim($data['description'] ?? $service['description']);
+        $type = trim($data['service_type'] ?? $service['service_type']);
         $isActive = isset($data['is_active']) ? (int)$data['is_active'] : (int)$service['is_active'];
 
         $db = Database::getConnection();
@@ -136,6 +193,7 @@ class ServiceManager {
                 code = :code,
                 description = :description,
                 category = :category,
+                service_type = :type,
                 location_or_counter = :location,
                 estimated_duration_mins = :duration,
                 max_daily_capacity = :capacity,
@@ -149,6 +207,7 @@ class ServiceManager {
             'code'         => $code,
             'description'  => $description ?: null,
             'category'     => $category,
+            'type'         => $type,
             'location'     => $location ?: null,
             'duration'     => $duration,
             'capacity'     => $capacity,
@@ -158,7 +217,12 @@ class ServiceManager {
         ]);
 
         if (isset($data['schedules']) && is_array($data['schedules'])) {
-            self::updateServiceSchedules($id, $data['schedules'], $adminId);
+            if ($type === 'appointment') {
+                if (empty($data['schedules'])) {
+                    Response::error('Appointment services must have at least one operating day configured in the weekly schedule.', 422);
+                }
+                self::updateServiceSchedules($id, $data['schedules'], $adminId);
+            }
         }
 
         AuditService::log($adminId, 'UPDATE_SERVICE', 'service', $id, ['code' => $code]);
@@ -189,13 +253,18 @@ class ServiceManager {
             if (!isset($sched['day_of_week']) || empty($sched['start_time']) || empty($sched['end_time'])) {
                 continue;
             }
+            $startTime = trim($sched['start_time']);
+            $endTime = trim($sched['end_time']);
+            if (strlen($startTime) === 5) $startTime .= ':00';
+            if (strlen($endTime) === 5) $endTime .= ':00';
+
             $insertStmt->execute([
                 'service_id'    => $serviceId,
                 'day_of_week'   => (int)$sched['day_of_week'],
-                'start_time'    => $sched['start_time'],
-                'end_time'      => $sched['end_time'],
-                'slot_duration' => (int)($sched['slot_duration_mins'] ?? 30),
-                'max_students'  => (int)($sched['max_students_per_slot'] ?? 3)
+                'start_time'    => $startTime,
+                'end_time'      => $endTime,
+                'slot_duration' => max(5, (int)($sched['slot_duration_mins'] ?? 30)),
+                'max_students'  => max(1, (int)($sched['max_students_per_slot'] ?? 3))
             ]);
         }
 
@@ -266,7 +335,8 @@ class ServiceManager {
             $availableCapacity = max(0, $maxPerSlot - $booked);
 
             // If date is today, check if slot has already passed
-            $isPastSlot = ($date === $today && strtotime($slotStart) <= time());
+            $slotTimestamp = strtotime("{$date} {$slotStart}");
+            $isPastSlot = ($date === $today && $slotTimestamp <= time());
 
             $slots[] = [
                 'start_time'         => $slotStart,

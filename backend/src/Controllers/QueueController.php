@@ -52,6 +52,13 @@ class QueueController {
         Response::json($updated, 200, "Queue status updated to '{$status}'.");
     }
 
+    public function cancel(Request $request, array $params): void {
+        $user = $request->getUser();
+        $id = (int)($params['id'] ?? 0);
+        $updated = QueueService::cancelStudentTicket($id, (int)$user['id']);
+        Response::json($updated, 200, 'Queue ticket cancelled successfully.');
+    }
+
     public function publicDisplay(Request $request): void {
         $data = QueueService::getPublicDisplayData();
         Response::json($data, 200, 'Public display data.');

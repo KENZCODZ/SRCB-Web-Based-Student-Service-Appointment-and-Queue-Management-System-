@@ -212,6 +212,12 @@ class ApiService {
     return this.request('/queue/my-active');
   }
 
+  async cancelQueueTicket(id: number) {
+    return this.request(`/queue/${id}/cancel`, {
+      method: 'PUT',
+    });
+  }
+
   async getActiveQueueForService(serviceId: number, date?: string) {
     const qs = date ? `?date=${encodeURIComponent(date)}` : '';
     return this.request(`/queue/service/${serviceId}${qs}`);

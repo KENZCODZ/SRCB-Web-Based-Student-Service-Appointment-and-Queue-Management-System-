@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Requirement Specifications (SRS) - EduQueue</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --primary-dark: #0f172a;
+      --accent: #2563eb;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --bg: #ffffff;
+      --card-bg: #f8fafc;
+      --border: #e2e8f0;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      color: var(--text);
+      background-color: #f1f5f9;
+      line-height: 1.65;
+      padding: 40px 20px;
+    }
+
+    .document-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: var(--bg);
+      padding: 60px 70px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+      border-radius: 8px;
+    }
+
+    .doc-header {
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 20px;
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    .school-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--primary);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .dept-name {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 15px;
+    }
+
+    h1.doc-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 6px;
+    }
+
+    h2.doc-subtitle {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    .doc-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    h2.section-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 36px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 6px;
+    }
+
+    h3.subsection-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--primary-dark);
+      margin-top: 24px;
+      margin-bottom: 10px;
+    }
+
+    h4.feature-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-top: 18px;
+      margin-bottom: 6px;
+    }
+
+    p {
+      font-size: 14px;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    ul, ol {
+      margin-left: 20px;
+      margin-bottom: 14px;
+    }
+
+    li {
+      font-size: 13.5px;
+      margin-bottom: 6px;
+      color: #334155;
+    }
+
+    .req-item {
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .req-tag {
+      display: inline-block;
+      font-family: 'Inter', monospace;
+      font-weight: 600;
+      font-size: 11.5px;
+      color: var(--primary);
+      background: #eff6ff;
+      padding: 1px 6px;
+      border-radius: 4px;
+      border: 1px solid #dbeafe;
+      margin-right: 6px;
+    }
+
+    .persona-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: 6px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+    }
+
+    .persona-title {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--primary-dark);
+      margin-bottom: 6px;
+    }
+
+    .references-list li {
+      font-size: 12.5px;
+      line-height: 1.6;
+      margin-bottom: 8px;
+    }
+
+    .print-btn {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      background: var(--primary);
+      color: #ffffff;
+      border: none;
+      padding: 12px 22px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(30, 58, 138, 0.4);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .print-btn:hover {
+      background: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+      .document-container {
+        box-shadow: none;
+        padding: 0;
+        max-width: 100%;
+      }
+      .print-btn {
+        display: none;
+      }
+      h2.section-title {
+        page-break-after: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <button class="print-btn" onclick="window.print()">
+    🖨️ Print / Save as PDF
+  </button>
+
+  <div class="document-container">
+    <div class="doc-header">
+      <div class="school-name">St. Rita's College of Balingasag, Inc.</div>
+      <div class="dept-name">Higher Education Department | Information Technology Program</div>
+      <h1 class="doc-title">System Requirement Specifications (SRS)</h1>
+      <h2 class="doc-subtitle">EduQueue: Web-Based Student Service Appointment and Queue Management System</h2>
+      <div class="doc-meta">
+        Group 2 | Capstone & Web Systems Project | S.Y. 2025–2026<br>
+        St. Rita's College of Balingasag, Inc. &bull; Balingasag, Misamis Oriental
+      </div>
+    </div>
+
+    <!-- 1. Introduction -->
+    <h2 class="section-title">1. Introduction</h2>
+    
+    <h3 class="subsection-title">1.1 Purpose</h3>
+    <p>This document specifies the comprehensive functional and non-functional requirements for the <strong>EduQueue: Web-Based Student Service Appointment and Queue Management System</strong>. The primary objective of this SRS is to establish a rigorous, formal specification of the software solution developed for <strong>St. Rita's College of Balingasag (SRCB)</strong>. It serves as the definitive reference agreement between the system developers, academic evaluators, institutional administrators, department heads (Registrar, Dean's Office, Guidance Office, Finance/Cashier, IT Helpdesk, and Library), and the student body.</p>
+    <p>The system replaces manual paper logs, congested physical walk-in queues, and fragmented scheduling with a centralized, full-stack digital platform featuring real-time walk-in sequence ticketing, conflict-free appointment slot booking, role-based staff desk calling terminals, a lobby display monitor, and automated transactional email notifications.</p>
+
+    <h3 class="subsection-title">1.2 Project Scope</h3>
+    <p>The EduQueue system is an enterprise-grade, full-stack web application architected with a React 18 + TypeScript + Vite frontend, a native PHP 8.2+ RESTful API backend adhering to the MVC and Service Layer architecture, and a normalized MySQL 8.0 relational database.</p>
+    <p>The scope encompasses:</p>
+    <ul>
+      <li><strong>Student Self-Service Portal:</strong> Self-registration, JWT credential authentication, interactive service catalog discovery, conflict-free time slot appointment scheduling, on-demand walk-in queue ticketing, personal real-time position tracking, in-app notification center, and profile management.</li>
+      <li><strong>Staff Operations & Counter Desk Terminal:</strong> Calling next student, starting service, completing transactions, skipping no-shows, and processing appointment dispositions (Approval with email voucher, Decline with reason, and Reschedule with revised date/time).</li>
+      <li><strong>Public Lobby Live Display Monitor (/display):</strong> Fullscreen lobby kiosk display featuring live called tickets per counter desk, active ticket callouts, real-time digital clock, and upcoming waiting lists with auto-refresh polling.</li>
+      <li><strong>Administrative Management Panel:</strong> Operational KPI overview, 7-day volume analytics, service & operating hours configuration, user account provisioning, system audit logging, and transactional email dispatch logs.</li>
+      <li><strong>Multi-Channel Transactional Email Engine:</strong> Seamless integration with Resend, Brevo, SendGrid, SMTP, and Log driver for automated delivery of appointment confirmations, cancellations, and reschedule advisories.</li>
+    </ul>
+
+    <h3 class="subsection-title">1.3 Definitions, Acronyms, and Abbreviations</h3>
+    <ul>
+      <li><strong>UI / UX:</strong> User Interface / User Experience</li>
+      <li><strong>SRS:</strong> System Requirement Specifications</li>
+      <li><strong>HCI:</strong> Human-Computer Interaction</li>
+      <li><strong>WCAG:</strong> Web Content Accessibility Guidelines</li>
+      <li><strong>FR / NF:</strong> Functional Requirement / Non-Functional Requirement</li>
+      <li><strong>SRCB:</strong> St. Rita's College of Balingasag</li>
+      <li><strong>BSIT:</strong> Bachelor of Science in Information Technology</li>
+      <li><strong>API:</strong> Application Programming Interface — backend service providing structured JSON responses</li>
+      <li><strong>JWT:</strong> JSON Web Token (RFC 7519) — compact URL-safe token format for stateless authentication</li>
+      <li><strong>RBAC:</strong> Role-Based Access Control — security authorization restricting access based on user role (admin, staff, student)</li>
+      <li><strong>PDO:</strong> PHP Data Objects — consistent abstraction layer for secure database interaction with prepared statements</li>
+      <li><strong>3NF:</strong> Third Normal Form — relational database schema normalization standard eliminating data redundancy</li>
+      <li><strong>CORS:</strong> Cross-Origin Resource Sharing — browser security mechanism regulating cross-origin HTTP requests</li>
+    </ul>
+
+    <h3 class="subsection-title">1.4 References</h3>
+    <ul class="references-list">
+      <li>St. Rita's College of Balingasag, Inc. (2025). <em>Higher Education Department Capstone Project Manual and Software Development Guidelines</em>. Balingasag, Misamis Oriental.</li>
+      <li>World Wide Web Consortium (W3C). (2018). <em>Web Content Accessibility Guidelines (WCAG) 2.1</em>. https://www.w3.org/TR/WCAG21/</li>
+      <li>Mozilla Developer Network (MDN). (2024). <em>Web APIs, HTTP Headers, and Modern JavaScript Reference</em>. https://developer.mozilla.org</li>
+      <li>Internet Engineering Task Force (IETF). (2015). <em>RFC 7519: JSON Web Token (JWT)</em>. https://datatracker.ietf.org/doc/html/rfc7519</li>
+      <li>Open Web Application Security Project (OWASP). (2023). <em>OWASP Top 10 Web Application Security Risks and Prevention Cheat Sheets</em>. https://owasp.org</li>
+      <li>Nielsen, J. (1994). <em>10 Usability Heuristics for User Interface Design</em>. Nielsen Norman Group. https://www.nngroup.com/articles/ten-usability-heuristics/</li>
+      <li>The PHP Group. (2024). <em>PHP Manual: PHP Data Objects (PDO) and Password Hashing</em>. https://www.php.net/manual/en/</li>
+    </ul>
+
+    <!-- 2. Overall Description -->
+    <h2 class="section-title">2. Overall Description</h2>
+    
+    <h3 class="subsection-title">2.1 User Needs and Pain Points</h3>
+    <ul>
+      <li><strong>Need 1: Eliminating Physical Queue Congestion:</strong> During peak enrollment and clearance periods, students endure hours standing in crowded hallways outside school offices without knowing their queue status or estimated wait duration.</li>
+      <li><strong>Need 2: Conflict-Free Appointment Scheduling:</strong> Services requiring extensive face-to-face consultation (e.g., Dean's Academic Advising, Guidance Counseling, Transcript evaluation) suffer from double bookings, uncoordinated schedules, and lost manual appointment logbooks.</li>
+      <li><strong>Need 3: Real-Time Transparency for Staff and Campus Lobby:</strong> Office staff have no visibility into daily student load, cannot forecast incoming student volume, and lack digital calling screens in lobby areas, causing missed turns and chaotic counter crowds.</li>
+      <li><strong>Need 4: Automated Verification & Communication:</strong> When appointment dates change or cancellations occur, staff have no automated medium to notify students promptly, resulting in wasted trips to campus.</li>
+      <li><strong>Need 5: Centralized Institutional Auditing & Capacity Control:</strong> Department heads and school administrators lack unified reporting tools to evaluate office turnaround times, monitor staff activity, and adjust daily student quotas.</li>
+    </ul>
+
+    <h3 class="subsection-title">2.2 User Personas</h3>
+    <div class="persona-card">
+      <div class="persona-title">Persona 1 – The College Student: "Juan Dela Cruz"</div>
+      <p style="margin-bottom: 4px;"><strong>Demographics:</strong> 20 years old, 3rd Year BS Information Technology, Working Student.</p>
+      <p style="margin-bottom: 4px;"><strong>Goals:</strong> Book Transcript of Records requests around his class timetable; join cashier queues virtually without missing lectures; receive SMS/email alerts when his ticket is called.</p>
+      <p><strong>Frustrations:</strong> Long physical lines at the Registrar and Cashier offices; unclear document requirements resulting in repeated office visits; lack of real-time queue position tracking.</p>
+    </div>
+
+    <div class="persona-card">
+      <div class="persona-title">Persona 2 – The Department Staff: "Maria Santos"</div>
+      <p style="margin-bottom: 4px;"><strong>Demographics:</strong> 34 years old, Administrative Staff, Registrar Office.</p>
+      <p style="margin-bottom: 4px;"><strong>Goals:</strong> View daily student appointments in advance; call next walk-in ticket with one click; communicate appointment approvals, reschedules, or rejections with automated email receipts.</p>
+      <p><strong>Frustrations:</strong> Disorganized physical crowds around her counter window; manual logbooks and paper clearance forms; handling frustrated students who missed their turn.</p>
+    </div>
+
+    <div class="persona-card">
+      <div class="persona-title">Persona 3 – The System Administrator & Dean: "Dr. Ernesto Ramos"</div>
+      <p style="margin-bottom: 4px;"><strong>Demographics:</strong> 48 years old, Dean / Academic Administrator.</p>
+      <p style="margin-bottom: 4px;"><strong>Goals:</strong> Configure office operating hours and daily capacity thresholds; provision staff accounts; inspect system-wide audit logs and email delivery metrics; evaluate peak hour traffic analytics.</p>
+      <p><strong>Frustrations:</strong> Absence of centralized operational reports; inability to restrict daily service volume to prevent staff burnout; unorganized student clearance tracking.</p>
+    </div>
+
+    <h3 class="subsection-title">2.3 Assumptions and Dependencies</h3>
+    <ul>
+      <li>Users have access to modern web browsers (Chrome, Firefox, Safari, Edge) with JavaScript enabled.</li>
+      <li>The application is a full-stack system comprising a React frontend (Vite + TypeScript) and native PHP REST API backend connected to MySQL 8.0.</li>
+      <li>Stateless authentication is enforced via JWT (HMAC-SHA256). Public lobby screens (/display) do not require authentication.</li>
+      <li>Transactional email delivery utilizes configured mail API keys (Resend, Brevo, SendGrid) or SMTP fallback, with automatic fail-safe logging into the MySQL database.</li>
+      <li>Development execution is supported via a unified single-command runner (npm run dev) executing both backend and frontend processes.</li>
+    </ul>
+
+    <!-- 3. System Features and Requirements -->
+    <h2 class="section-title">3. System Features and Requirements</h2>
+
+    <h4 class="feature-title">3.1 Student Self-Service & Authentication</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR1</span> The system shall provide a registration form allowing students to register with their Student ID Number, First Name, Last Name, institutional Email, Password, Contact Number, Degree Program, and Year Level.</li>
+      <li class="req-item"><span class="req-tag">FR2</span> The system shall enforce client-side and server-side validation to ensure Student ID Numbers and Email addresses are unique within the database.</li>
+      <li class="req-item"><span class="req-tag">FR3</span> The system shall hash user passwords using standard PASSWORD_BCRYPT with a cost factor of 10 prior to database insertion.</li>
+      <li class="req-item"><span class="req-tag">FR4</span> The system shall authenticate users via email or student ID number along with password, issuing an HMAC-SHA256 JWT upon successful verification.</li>
+      <li class="req-item"><span class="req-tag">FR5</span> The system shall enforce Role-Based Access Control (RBAC) redirecting students to /dashboard, staff to /admin/appointments, and administrators to /admin/dashboard.</li>
+      <li class="req-item"><span class="req-tag">FR6</span> The system shall provide quick one-click demo login buttons on the login screen for rapid evaluative testing of Admin, Staff, and Student roles.</li>
+      <li class="req-item"><span class="req-tag">FR7</span> The system shall allow authenticated users to update personal profile details and change account passwords with current password verification.</li>
+    </ul>
+
+    <h4 class="feature-title">3.2 Institutional Service Catalog</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR8</span> The system shall display a service catalog categorized by office (Registrar, Dean's Office, Guidance, Finance/Cashier, IT Helpdesk, Library).</li>
+      <li class="req-item"><span class="req-tag">FR9</span> Each service card shall indicate its service classification (appointment or queue), office counter location, estimated duration in minutes, daily quota, and prerequisites/requirements.</li>
+      <li class="req-item"><span class="req-tag">FR10</span> The system shall provide dynamic search and category filtering allowing students to filter services instantly without reloading the page.</li>
+    </ul>
+
+    <h4 class="feature-title">3.3 Appointment Booking & Conflict Management</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR11</span> The system shall compute and display available appointment time slots for any selected date based on service operating schedules, slot duration, and maximum capacity limits.</li>
+      <li class="req-item"><span class="req-tag">FR12</span> The system shall prevent overlapping bookings by checking existing active appointments for the requested time window before booking confirmation.</li>
+      <li class="req-item"><span class="req-tag">FR13</span> The system shall prevent students from booking past dates, weekend non-operating days, or slots exceeding maximum daily capacity.</li>
+      <li class="req-item"><span class="req-tag">FR14</span> The system shall assign a unique tracking code (e.g., APT-20260904-XXXX) to each confirmed appointment.</li>
+      <li class="req-item"><span class="req-tag">FR15</span> The system shall allow students to cancel pending appointments, automatically freeing up the time slot for other students.</li>
+    </ul>
+
+    <h4 class="feature-title">3.4 Walk-in Queue Ticketing & Real-Time Position Tracking</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR16</span> The system shall allow registered students to join the walk-in queue for an active queue-based service with a single click.</li>
+      <li class="req-item"><span class="req-tag">FR17</span> The system shall automatically generate sequential daily queue ticket numbers formatted with service code prefixes (e.g., FIN-001, REG-002, IT-003).</li>
+      <li class="req-item"><span class="req-tag">FR18</span> The system shall restrict a student to one active queue ticket per service at any given time to prevent queue hoarding.</li>
+      <li class="req-item"><span class="req-tag">FR19</span> The system shall calculate and display the student's real-time queue position, the ticket currently being served at the counter, and estimated remaining wait time.</li>
+      <li class="req-item"><span class="req-tag">FR20</span> The system shall provide a visual status badge (waiting, calling, serving, completed, skipped, cancelled) that updates in real time.</li>
+    </ul>
+
+    <h4 class="feature-title">3.5 Staff Appointment Processing & Email Dispatch</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR21</span> The system shall provide staff with an Appointment Management dashboard filtered by service, status, date range, and student search query.</li>
+      <li class="req-item"><span class="req-tag">FR22</span> The system shall allow staff to Approve pending appointments, transitioning status to approved and triggering an automated HTML email voucher to the student.</li>
+      <li class="req-item"><span class="req-tag">FR23</span> The system shall allow staff to Decline appointments with mandatory reason input, dispatching an official cancellation advisory email.</li>
+      <li class="req-item"><span class="req-tag">FR24</span> The system shall allow staff to Reschedule appointments with revised date, start time, end time, and staff notes, notifying the student via email.</li>
+      <li class="req-item"><span class="req-tag">FR25</span> The system shall log every email dispatch attempt into the email_logs database table.</li>
+    </ul>
+
+    <h4 class="feature-title">3.6 Staff Queue Counter Desk Terminal</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR26</span> The system shall provide staff with a Counter Calling Terminal showing the current queue list for their assigned service desk.</li>
+      <li class="req-item"><span class="req-tag">FR27</span> The system shall provide a prominent "Call Next Student" action that selects the oldest waiting ticket, marks it as calling, assigns the staff counter window, and broadcasts to the public display.</li>
+      <li class="req-item"><span class="req-tag">FR28</span> The system shall allow staff to transition ticket states to "Start Serving" (serving) upon student arrival at the counter.</li>
+      <li class="req-item"><span class="req-tag">FR29</span> The system shall allow staff to finalize transactions by clicking "Complete" (completed) or mark no-shows with "Skip" (skipped).</li>
+      <li class="req-item"><span class="req-tag">FR30</span> The system shall track timestamps for called_at, served_at, and completed_at to compute accurate service turnaround analytics.</li>
+    </ul>
+
+    <h4 class="feature-title">3.7 Public Lobby Live Display Monitor (/display)</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR31</span> The system shall provide a dedicated public route at /display accessible without user authentication.</li>
+      <li class="req-item"><span class="req-tag">FR32</span> The display shall render high-contrast visual cards for every active counter desk indicating the service name, counter window, and currently called ticket number.</li>
+      <li class="req-item"><span class="req-tag">FR33</span> The display shall feature an upcoming waiting list ticker, a live digital clock, and institutional SRCB branding with auto-refresh polling every 5 seconds.</li>
+    </ul>
+
+    <h4 class="feature-title">3.8 Administrator Control Panel, Services & Audit Logs</h4>
+    <ul>
+      <li class="req-item"><span class="req-tag">FR34</span> The dashboard shall display live summary KPI cards: Total Appointments Today, Active Walk-In Queue Count, Completed Services, and Total Registered Users.</li>
+      <li class="req-item"><span class="req-tag">FR35</span> The dashboard shall render a 7-Day Throughput Bar Chart comparing appointment volume against walk-in queue transactions.</li>
+      <li class="req-item"><span class="req-tag">FR36</span> The system shall allow administrators to create and edit service records including code, title, category, type, counter location, duration, daily capacity, and prerequisites.</li>
+      <li class="req-item"><span class="req-tag">FR37</span> The system shall allow administrators to configure recurring weekly operating schedules with custom slot durations and capacity limits per time slot.</li>
+      <li class="req-item"><span class="req-tag">FR38</span> The system shall allow administrators to provision new Staff or Administrator accounts directly with assigned departments and toggle user status.</li>
+      <li class="req-item"><span class="req-tag">FR39</span> The system shall log all critical actions into an immutable audit_logs database table with user ID, action tag, entity type, IP address, and JSON metadata.</li>
+      <li class="req-item"><span class="req-tag">FR40</span> The system shall provide a dedicated email dispatch monitor detailing every outbound notification and delivery status.</li>
+    </ul>
+
+    <!-- 4. Non-Functional Requirements -->
+    <h2 class="section-title">4. Non-Functional Requirements (HCI Focus)</h2>
+
+    <h3 class="subsection-title">4.1 Usability</h3>
+    <ul>
+      <li class="req-item"><span class="req-tag">NF1</span> A user shall be able to reach any major functional section within a maximum of 3 clicks from the main navigation menu.</li>
+      <li class="req-item"><span class="req-tag">NF2</span> The primary task of discovering a service, selecting an available time slot, entering purpose, and submitting an appointment booking shall be completable in under 60 seconds.</li>
+      <li class="req-item"><span class="req-tag">NF3</span> All interactive forms shall provide clear, real-time inline validation with descriptive error feedback before network dispatch.</li>
+      <li class="req-item"><span class="req-tag">NF4</span> The interface shall utilize a polished institutional color palette (SRCB Navy #1E3A8A, Royal Blue #2563EB, Emerald Green #10B981, Amber #F59E0B) with consistent typography and micro-animations.</li>
+      <li class="req-item"><span class="req-tag">NF5</span> All operational adjustments (service hours, counter names, slot capacities) shall be performed entirely through graphical UI modals without requiring manual SQL.</li>
+    </ul>
+
+    <h3 class="subsection-title">4.2 Performance</h3>
+    <ul>
+      <li class="req-item"><span class="req-tag">NF6</span> Backend REST API endpoints shall execute and respond within 200 milliseconds under standard institutional network loads.</li>
+      <li class="req-item"><span class="req-tag">NF7</span> Initial page loads shall render within 1.5 seconds on modern desktop browsers and under 3 seconds on 4G mobile connections.</li>
+      <li class="req-item"><span class="req-tag">NF8</span> All frequently queried columns (user_id, service_id, appointment_date, queue_date, status) shall be indexed in MySQL for sub-10ms query execution.</li>
+      <li class="req-item"><span class="req-tag">NF9</span> Live queue trackers and notification centers shall utilize lightweight, debounced REST polling (5-second intervals).</li>
+    </ul>
+
+    <h3 class="subsection-title">4.3 Accessibility</h3>
+    <ul>
+      <li class="req-item"><span class="req-tag">NF10</span> The application shall adhere to WCAG 2.1 Level AA accessibility criteria across all screens.</li>
+      <li class="req-item"><span class="req-tag">NF11</span> All body typography, headings, buttons, and alert badges shall maintain a minimum color contrast ratio of 4.5:1 against their backgrounds.</li>
+      <li class="req-item"><span class="req-tag">NF12</span> All interactive elements shall be fully navigable and actionable using only keyboard inputs (Tab, Shift+Tab, Enter, Space, Escape).</li>
+      <li class="req-item"><span class="req-tag">NF13</span> All custom dialogs and icons shall incorporate appropriate ARIA attributes for screen reader compatibility.</li>
+    </ul>
+
+    <h3 class="subsection-title">4.4 Compatibility & Responsiveness</h3>
+    <ul>
+      <li class="req-item"><span class="req-tag">NF14</span> The web application shall render identically on latest versions of Chrome, Firefox, Safari, Edge, and mobile browser variants.</li>
+      <li class="req-item"><span class="req-tag">NF15</span> The UI shall dynamically adapt across viewports from 320px (mobile) to 1920px+ (large monitor / Lobby TV Kiosk) using Tailwind CSS responsive utility classes.</li>
+      <li class="req-item"><span class="req-tag">NF16</span> All buttons and interactive controls shall provide minimum touch target dimensions of 44x44 pixels for touchscreen mobile navigation.</li>
+    </ul>
+
+    <h3 class="subsection-title">4.5 Security</h3>
+    <ul>
+      <li class="req-item"><span class="req-tag">NF17</span> All database interactions shall strictly utilize PDO prepared statements with parameterized inputs. Emulated prepared statements shall be disabled.</li>
+      <li class="req-item"><span class="req-tag">NF18</span> All user credentials shall be secured using standard PASSWORD_BCRYPT with cost factor 10.</li>
+      <li class="req-item"><span class="req-tag">NF19</span> All private API routes shall validate incoming HMAC-SHA256 JWT tokens with standard 24-hour expiration claims.</li>
+      <li class="req-item"><span class="req-tag">NF20</span> Administrative and staff endpoints shall be guarded on the server side by RoleMiddleware.</li>
+      <li class="req-item"><span class="req-tag">NF21</span> All incoming request payloads shall be sanitized and escaped upon output formatting.</li>
+      <li class="req-item"><span class="req-tag">NF22</span> The backend API shall enforce explicit CORS origin headers and secure HTTP headers.</li>
+      <li class="req-item"><span class="req-tag">NF23</span> All secrets (database passwords, JWT keys, mail API credentials) shall reside exclusively in server-side .env files.</li>
+    </ul>
+
+    <h3 class="subsection-title">4.6 Maintainability & Architecture</h3>
+    <ul>
+      <li class="req-item"><span class="req-tag">NF24</span> The backend codebase shall strictly enforce separation of concerns across Core/, Middleware/, Controllers/, and Services/ layers.</li>
+      <li class="req-item"><span class="req-tag">NF25</span> The frontend application shall channel all network interactions through a centralized typed API service module (src/services/api.ts).</li>
+      <li class="req-item"><span class="req-tag">NF26</span> External email dispatch failures shall be captured gracefully and logged in email_logs without rolling back primary appointment or queue database transactions.</li>
+    </ul>
+
+    <!-- 5. User Interface Design & Aesthetics -->
+    <h2 class="section-title">5. User Interface Design & Aesthetics</h2>
+
+    <h3 class="subsection-title">5.1 Wireframes & Layout Hierarchy</h3>
+    <p>The user interface is structured into four distinct layout archetypes:</p>
+    <ol>
+      <li><strong>Public & Guest Layout (/login, /register, /display):</strong> Clean, centered card authentication forms with institutional crest, quick demo autofill selectors, and clear status notifications; dedicated fullscreen lobby display layout with high-contrast typography and digital clock header.</li>
+      <li><strong>Student Self-Service Portal (/dashboard, /services, /appointments, /queue, /profile):</strong> Top navigation bar featuring brand identity, breadcrumbs, notification bell badge with live counter, user profile dropdown, active queue countdown ticker, and upcoming appointment alert cards.</li>
+      <li><strong>Staff Operations Terminal (/admin/appointments, /admin/queue):</strong> Streamlined calling interface with prominent status toggle buttons ("Call Next", "Start Serving", "Complete", "Skip") and filterable data tables with status color indicators.</li>
+      <li><strong>Administrator Control Panel (/admin/dashboard, /admin/services, /admin/users, /admin/audit-logs):</strong> Sidebar navigation for rapid switching between Dashboard, Services, Appointments, Queue Management, Users, and Audit Trails with analytical metric cards and SVG volume trend charts.</li>
+    </ol>
+
+    <h3 class="subsection-title">5.2 High-Fidelity UI Design System</h3>
+    <ul>
+      <li><strong>Typography:</strong> Google Fonts <em>Inter</em> and <em>Roboto</em> for high-density tabular data and mobile legibility; <em>Outfit</em> for modern headings.</li>
+      <li><strong>Color Palette:</strong> Deep Navy (<code>#1E3A8A</code> / <code>#1E293B</code>), Royal Blue (<code>#2563EB</code>), Emerald Green (<code>#10B981</code>), Warm Amber (<code>#F59E0B</code>), Rose Red (<code>#EF4444</code>), and Slate (<code>#64748B</code> / <code>#F8FAFC</code>).</li>
+      <li><strong>Micro-Interactions:</strong> Subtle card hover elevations, glassmorphic modal overlays, skeleton loading cards, and semantic Lucide React icons pairing visual meaning with every interaction.</li>
+    </ul>
+
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--text-muted); text-align: center;">
+      EduQueue: Web-Based Student Service Appointment and Queue Management System &bull; St. Rita's College of Balingasag, Inc. (2025–2026)
+    </div>
+  </div>
+</body>
+</html>

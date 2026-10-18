@@ -239,6 +239,27 @@ class QueueService {
         return $updated;
     }
 
+    public static function cancelStudentTicket(int $queueId, int $userId): array {
+        $ticket = self::getQueueEntryById($queueId);
+        if (!$ticket) {
+            Response::error('Queue ticket not found.', 404);
+        }
+        if ((int)$ticket['user_id'] !== $userId) {
+            Response::error('Unauthorized to cancel this queue ticket.', 403);
+        }
+        if (!in_array($ticket['status'], ['waiting', 'calling'], true)) {
+            Response::error('Only waiting or active tickets can be cancelled.', 422);
+        }
+
+        $db = Database::getConnection();
+        $stmt = $db->prepare("UPDATE queue_entries SET status = 'cancelled' WHERE id = :id");
+        $stmt->execute(['id' => $queueId]);
+
+        AuditService::log($userId, 'CANCEL_QUEUE_TICKET', 'queue', $queueId, ['ticket' => $ticket['queue_number']]);
+
+        return self::getQueueEntryById($queueId) ?? [];
+    }
+
     public static function getStudentActiveTickets(int $userId): array {
         $today = date('Y-m-d');
         $db = Database::getConnection();

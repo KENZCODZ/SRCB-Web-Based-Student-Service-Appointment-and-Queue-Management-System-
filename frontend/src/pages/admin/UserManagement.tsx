@@ -21,6 +21,19 @@ export const UserManagement: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Account Toggle Confirmation Modal State (Heuristic 5: Error Prevention)
+  const [togglingUser, setTogglingUser] = useState<User | null>(null);
+  const [toggleLoading, setToggleLoading] = useState(false);
+
+  // Auto-dismiss toast message after 5 seconds (Heuristic 1: Visibility of System Status)
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -68,6 +81,7 @@ export const UserManagement: React.FC = () => {
     try {
       await api.createUser(formData);
       setIsCreateOpen(false);
+      setToastMessage(`Account for ${formData.first_name} ${formData.last_name} (${formData.email}) created successfully.`);
       setFormData({
         email: '',
         first_name: '',
@@ -87,12 +101,21 @@ export const UserManagement: React.FC = () => {
     }
   };
 
-  const handleToggleActive = async (user: User) => {
+  const handleConfirmToggleActive = async () => {
+    if (!togglingUser) return;
+    setToggleLoading(true);
     try {
-      await api.toggleUserActive(user.id, user.is_active !== 1);
+      const newStatus = togglingUser.is_active !== 1;
+      await api.toggleUserActive(togglingUser.id, newStatus);
+      setToastMessage(
+        `User ${togglingUser.first_name} ${togglingUser.last_name} account has been ${newStatus ? 'activated' : 'disabled'}.`
+      );
+      setTogglingUser(null);
       loadUsers();
     } catch (e: any) {
       alert(e.message || 'Failed to toggle account status.');
+    } finally {
+      setToggleLoading(false);
     }
   };
 
@@ -121,7 +144,23 @@ export const UserManagement: React.FC = () => {
         </button>
       </div>
 
-      {/* Filters Bar */}
+      {/* Toast Feedback Banner (Heuristic 1: Visibility of System Status) */}
+      {toastMessage && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span className="font-bold text-sm">{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage('')}
+            className="text-emerald-600 hover:text-emerald-900 p-1 rounded-lg hover:bg-emerald-100/50"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* Filters Bar with Clear Option (Heuristic 7: Flexibility & Efficiency) */}
       <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-center gap-3">
         <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -130,8 +169,21 @@ export const UserManagement: React.FC = () => {
             placeholder="Search email, name, or student ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            className="w-full pl-10 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
+          {search && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearch('');
+                loadUsers();
+              }}
+              className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
         </form>
 
         <select
@@ -139,7 +191,7 @@ export const UserManagement: React.FC = () => {
           onChange={(e) => setRoleFilter(e.target.value)}
           className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none w-full md:w-48"
         >
-          <option value="">All Roles</option>
+          <option value="">All Roles ({users.length})</option>
           <option value="admin">Administrators</option>
           <option value="staff">Staff Personnel</option>
           <option value="student">Students</option>
@@ -205,7 +257,7 @@ export const UserManagement: React.FC = () => {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <button
-                        onClick={() => handleToggleActive(u)}
+                        onClick={() => setTogglingUser(u)}
                         className={`p-1.5 rounded-lg transition ${
                           u.is_active === 1
                             ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
@@ -353,6 +405,78 @@ export const UserManagement: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* TOGGLE ACTIVE STATUS CONFIRMATION MODAL (Heuristic 5: Error Prevention & Heuristic 6: Recognition) */}
+      <Modal
+        isOpen={!!togglingUser}
+        onClose={() => setTogglingUser(null)}
+        title={togglingUser?.is_active === 1 ? 'Disable User Account' : 'Reactivate User Account'}
+        maxWidth="md"
+      >
+        {togglingUser && (
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Target User Account
+                </span>
+                <div className="text-base font-bold text-slate-900 mt-0.5">
+                  {togglingUser.first_name} {togglingUser.last_name}
+                </div>
+                <p className="text-xs text-slate-500 font-mono">
+                  {togglingUser.email} {togglingUser.student_id_number ? `• ${togglingUser.student_id_number}` : ''}
+                </p>
+              </div>
+              <Badge status={togglingUser.role} />
+            </div>
+
+            {togglingUser.is_active === 1 ? (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-xs flex items-center gap-2.5">
+                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0" />
+                <span>
+                  <strong>Warning:</strong> Disabling this account will immediately revoke access. This user will not be able to log in until an administrator reactivates their credentials.
+                </span>
+              </div>
+            ) : (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center gap-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                <span>
+                  Reactivating this account will immediately restore login and portal permissions for this user.
+                </span>
+              </div>
+            )}
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setTogglingUser(null)}
+                className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={toggleLoading}
+                onClick={handleConfirmToggleActive}
+                className={`px-5 py-2.5 rounded-xl text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-50 ${
+                  togglingUser.is_active === 1
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                <Power className="w-4 h-4" />
+                <span>
+                  {toggleLoading
+                    ? 'Updating...'
+                    : togglingUser.is_active === 1
+                    ? 'Yes, Disable Account'
+                    : 'Yes, Reactivate Account'}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

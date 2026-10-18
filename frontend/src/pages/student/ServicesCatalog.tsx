@@ -18,6 +18,9 @@ import {
   Info
 } from 'lucide-react';
 
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_SHORTS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 export const ServicesCatalog: React.FC = () => {
   const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>([]);
@@ -32,6 +35,7 @@ export const ServicesCatalog: React.FC = () => {
   const [availableSlots, setAvailableSlots] = useState<TimeSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<TimeSlot | null>(null);
   const [purpose, setPurpose] = useState('');
+  const [slotsLoading, setSlotsLoading] = useState(false);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState<any>(null);
@@ -41,9 +45,54 @@ export const ServicesCatalog: React.FC = () => {
   const [queueLoading, setQueueLoading] = useState(false);
   const [queueError, setQueueError] = useState('');
 
-  function dateToString(d: Date) {
-    return d.toISOString().split('T')[0];
+  // Local-safe date string formatter (YYYY-MM-DD) avoiding UTC offset shifts
+  function dateToString(d: Date): string {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
+
+  // Parse YYYY-MM-DD into day of week (0=Sun, 1=Mon, ..., 6=Sat) in local time
+  const getSelectedDayOfWeek = (dateStr: string): number => {
+    if (!dateStr) return -1;
+    const parts = dateStr.split('-').map(Number);
+    if (parts.length === 3) {
+      return new Date(parts[0], parts[1] - 1, parts[2]).getDay();
+    }
+    return new Date(dateStr).getDay();
+  };
+
+  const getNextOperationalDate = (service: Service): string => {
+    const activeDays = (service.schedules || []).map((s) => s.day_of_week);
+    const now = new Date();
+    if (activeDays.length === 0) {
+      if (now.getDay() === 0) now.setDate(now.getDate() + 1);
+      else if (now.getDay() === 6) now.setDate(now.getDate() + 2);
+      return dateToString(now);
+    }
+
+    const testDate = new Date();
+    for (let i = 0; i < 14; i++) {
+      if (activeDays.includes(testDate.getDay())) {
+        return dateToString(testDate);
+      }
+      testDate.setDate(testDate.getDate() + 1);
+    }
+    return dateToString(now);
+  };
+
+  const isOperatingDate = (service: Service | null, dateStr: string): boolean => {
+    if (!service || !service.schedules || service.schedules.length === 0) return true;
+    const day = getSelectedDayOfWeek(dateStr);
+    return service.schedules.some((s) => s.day_of_week === day);
+  };
+
+  const getOperatingDaysList = (service: Service | null): string => {
+    if (!service || !service.schedules || service.schedules.length === 0) return 'Monday to Friday';
+    const activeDays = service.schedules.map((s) => DAY_NAMES[s.day_of_week]);
+    return activeDays.join(', ');
+  };
 
   const loadServices = async () => {
     try {
@@ -68,18 +117,22 @@ export const ServicesCatalog: React.FC = () => {
   }, [bookingService, selectedDate]);
 
   const loadSlots = async (serviceId: number, date: string) => {
+    setSlotsLoading(true);
     try {
       const res = await api.getAvailableSlots(serviceId, date);
       setAvailableSlots(res.data || []);
       setSelectedSlot(null);
     } catch (e: any) {
       setAvailableSlots([]);
+    } finally {
+      setSlotsLoading(false);
     }
   };
 
   const handleOpenBooking = (service: Service) => {
     setBookingService(service);
-    setSelectedDate(dateToString(new Date()));
+    const initialDate = getNextOperationalDate(service);
+    setSelectedDate(initialDate);
     setSelectedSlot(null);
     setPurpose('');
     setBookingError('');
@@ -133,9 +186,9 @@ export const ServicesCatalog: React.FC = () => {
   };
 
   // Filter logic
-  const categories = ['all', ...Array.from(new Set(services.map(s => s.category)))];
+  const categories = ['all', ...Array.from(new Set(services.map((s) => s.category)))];
 
-  const filteredServices = services.filter(s => {
+  const filteredServices = services.filter((s) => {
     const matchesTab = activeTab === 'all' || s.service_type === activeTab;
     const matchesCat = selectedCategory === 'all' || s.category === selectedCategory;
     const matchesSearch =
@@ -186,7 +239,9 @@ export const ServicesCatalog: React.FC = () => {
           <button
             onClick={() => setActiveTab('appointment')}
             className={`px-3 py-1.5 text-xs font-bold rounded-lg transition flex items-center gap-1.5 ${
-              activeTab === 'appointment' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+              activeTab === 'appointment'
+                ? 'bg-white text-brand-700 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             <Calendar className="w-3.5 h-3.5 text-brand-600" />
@@ -211,7 +266,7 @@ export const ServicesCatalog: React.FC = () => {
             onChange={(e) => setSelectedCategory(e.target.value)}
             className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           >
-            {categories.map(c => (
+            {categories.map((c) => (
               <option key={c} value={c}>
                 {c === 'all' ? 'All Departments' : c}
               </option>
@@ -266,6 +321,18 @@ export const ServicesCatalog: React.FC = () => {
                     <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                     <span>~{service.estimated_duration_mins} mins per student</span>
                   </div>
+                  {service.service_type === 'appointment' && (
+                    <div className="flex items-center gap-2 text-brand-700">
+                      <Calendar className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                      <span className="font-medium truncate">
+                        {service.schedules && service.schedules.length > 0
+                          ? `Schedule: ${service.schedules
+                              .map((s) => DAY_SHORTS[s.day_of_week])
+                              .join(', ')} (${service.schedules[0].start_time.substring(0, 5)} - ${service.schedules[0].end_time.substring(0, 5)})`
+                          : 'Schedule: Mon - Fri'}
+                      </span>
+                    </div>
+                  )}
                   {service.requirements && (
                     <div className="flex items-start gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                       <FileCheck className="w-3.5 h-3.5 text-brand-600 flex-shrink-0 mt-0.5" />
@@ -304,22 +371,25 @@ export const ServicesCatalog: React.FC = () => {
         </div>
       )}
 
-      {/* APPOINTMENT BOOKING MODAL */}
+      {/* BOOK APPOINTMENT MODAL */}
       <Modal
         isOpen={!!bookingService}
-        onClose={() => setBookingService(null)}
-        title={bookingSuccess ? 'Appointment Booked!' : `Book Appointment: ${bookingService?.name}`}
+        onClose={() => {
+          setBookingService(null);
+          setBookingSuccess(null);
+        }}
+        title={`Book Appointment: ${bookingService?.name || ''}`}
         maxWidth="lg"
       >
         {bookingSuccess ? (
           <div className="text-center py-4 space-y-4">
-            <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="w-8 h-8" />
+            <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto text-emerald-600">
+              <CheckCircle2 className="w-6 h-6" />
             </div>
             <div>
               <h3 className="text-lg font-bold text-slate-900">Request Submitted Successfully</h3>
               <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                Your appointment is now pending verification. An email notification will be sent once approved.
+                Your appointment is now pending verification. An in-app confirmation and email notification have been generated.
               </p>
             </div>
 
@@ -363,6 +433,20 @@ export const ServicesCatalog: React.FC = () => {
               </div>
             )}
 
+            {/* Institutional Operating Schedule Banner */}
+            <div className="p-3 bg-brand-50/70 border border-brand-100 rounded-2xl flex items-center gap-2 text-xs text-brand-900">
+              <Calendar className="w-4 h-4 text-brand-600 flex-shrink-0" />
+              <div>
+                <span className="font-bold block">Institutional Operating Schedule</span>
+                <span className="text-[11px] text-brand-700">
+                  Open on: <strong>{getOperatingDaysList(bookingService)}</strong>
+                  {bookingService?.schedules?.[0] &&
+                    ` (${bookingService.schedules[0].start_time.substring(0, 5)} - ${bookingService.schedules[0].end_time.substring(0, 5)})`}
+                </span>
+              </div>
+            </div>
+
+            {/* Select Date */}
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 Select Date *
@@ -377,14 +461,64 @@ export const ServicesCatalog: React.FC = () => {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Select Time Slot *
-              </label>
+            {/* Non-operating Day Warning */}
+            {bookingService && !isOperatingDate(bookingService, selectedDate) && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <span>
+                    Closed on <strong>{DAY_NAMES[getSelectedDayOfWeek(selectedDate)] || 'this day'}</strong>. Operating days are {getOperatingDaysList(bookingService)}.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (bookingService) {
+                      setSelectedDate(getNextOperationalDate(bookingService));
+                    }
+                  }}
+                  className="px-2.5 py-1 bg-amber-200 hover:bg-amber-300 text-amber-900 font-bold rounded-lg text-[10px] whitespace-nowrap transition"
+                >
+                  Jump to Open Day
+                </button>
+              </div>
+            )}
 
-              {availableSlots.length === 0 ? (
-                <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl text-center text-xs text-slate-500">
-                  No operational slots available on this date. Please choose another weekday.
+            {/* Time Slot Selection */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Select Time Slot *
+                </label>
+                {availableSlots.length > 0 && (
+                  <span className="text-[10px] text-slate-400 font-semibold">
+                    {availableSlots.filter((s) => s.is_available).length} available of {availableSlots.length} slots
+                  </span>
+                )}
+              </div>
+
+              {slotsLoading ? (
+                <div className="p-6 bg-slate-50 border border-slate-200/80 rounded-xl text-center text-xs text-slate-500 flex flex-col items-center justify-center gap-2">
+                  <Clock className="w-5 h-5 text-brand-600 animate-spin" />
+                  <span>Loading available operational slots...</span>
+                </div>
+              ) : availableSlots.length === 0 ? (
+                <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-xl text-center text-xs text-slate-500 space-y-2">
+                  <p>
+                    {!isOperatingDate(bookingService, selectedDate)
+                      ? `No operational slots on ${DAY_NAMES[getSelectedDayOfWeek(selectedDate)] || 'this day'}. This service operates on ${getOperatingDaysList(bookingService)}.`
+                      : 'No operational slots available on this date. Please choose another weekday.'}
+                  </p>
+                  {bookingService && !isOperatingDate(bookingService, selectedDate) && (
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate(getNextOperationalDate(bookingService))}
+                      className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs transition inline-flex items-center gap-1.5 shadow-sm"
+                    >
+                      <span>Select Next Available Day</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-1">
@@ -398,13 +532,13 @@ export const ServicesCatalog: React.FC = () => {
                         !slot.is_available
                           ? 'bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed opacity-60'
                           : selectedSlot?.start_time === slot.start_time
-                          ? 'bg-brand-600 border-brand-600 text-white shadow-sm'
+                          ? 'bg-brand-600 border-brand-600 text-white shadow-sm ring-2 ring-brand-500/20'
                           : 'bg-white border-slate-200 text-slate-700 hover:border-brand-300 hover:bg-brand-50/50'
                       }`}
                     >
                       <span>{slot.start_time_human}</span>
                       <span className="text-[10px] mt-0.5 opacity-80">
-                        {slot.is_available ? `${slot.available_capacity} slots left` : 'Full / Closed'}
+                        {slot.is_available ? `${slot.available_capacity} slots left` : 'Full / Passed'}
                       </span>
                     </button>
                   ))}
@@ -450,7 +584,7 @@ export const ServicesCatalog: React.FC = () => {
       <Modal
         isOpen={!!queueModalService}
         onClose={() => setQueueModalService(null)}
-        title="Join Service Queue"
+        title={`Join Walk-In Queue: ${queueModalService?.name || ''}`}
         maxWidth="sm"
       >
         <div className="space-y-4">
@@ -461,23 +595,19 @@ export const ServicesCatalog: React.FC = () => {
             </div>
           )}
 
-          <div className="p-4 rounded-2xl bg-cyan-50/50 border border-cyan-100 text-xs space-y-2">
-            <div>
-              <span className="text-slate-400 block font-medium">Service:</span>
-              <strong className="text-slate-900 text-sm">{queueModalService?.name}</strong>
+          <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs space-y-2">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Target Counter:</span>
+              <strong className="text-slate-900">{queueModalService?.location_or_counter || 'Window Desk'}</strong>
             </div>
-            <div>
-              <span className="text-slate-400 block font-medium">Counter / Window:</span>
-              <strong className="text-slate-800">{queueModalService?.location_or_counter}</strong>
-            </div>
-            <div>
-              <span className="text-slate-400 block font-medium">Estimated Time:</span>
-              <strong className="text-slate-800">~{queueModalService?.estimated_duration_mins} mins</strong>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Est. Serving Time:</span>
+              <strong className="text-slate-900">~{queueModalService?.estimated_duration_mins} mins</strong>
             </div>
           </div>
 
           <p className="text-xs text-slate-500">
-            A digital ticket number will be generated for you today. You can monitor your position in line in real-time.
+            A digital queue ticket will be issued. You will receive real-time notifications when your ticket is called.
           </p>
 
           <div className="pt-2 flex justify-end gap-2">
@@ -489,12 +619,11 @@ export const ServicesCatalog: React.FC = () => {
               Cancel
             </button>
             <button
-              type="button"
-              disabled={queueLoading}
               onClick={handleJoinQueue}
+              disabled={queueLoading}
               className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
             >
-              {queueLoading ? 'Issuing Ticket...' : 'Get Queue Ticket'}
+              {queueLoading ? 'Generating Ticket...' : 'Get Queue Ticket'}
             </button>
           </div>
         </div>

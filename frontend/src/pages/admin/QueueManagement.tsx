@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
 import { Service, QueueEntry } from '../../types';
 import { Badge } from '../../components/common/Badge';
+import { Modal } from '../../components/common/Modal';
 import {
   Radio,
   Clock,
@@ -14,7 +15,10 @@ import {
   Sparkles,
   AlertCircle,
   Building2,
-  RefreshCw
+  RefreshCw,
+  Copy,
+  Check,
+  X
 } from 'lucide-react';
 
 export const QueueManagement: React.FC = () => {
@@ -26,6 +30,25 @@ export const QueueManagement: React.FC = () => {
   const [callingLoading, setCallingLoading] = useState(false);
   const [callError, setCallError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  // Skip (No-Show) Confirmation Modal State (Heuristic 5: Error Prevention)
+  const [skippingTicket, setSkippingTicket] = useState<QueueEntry | null>(null);
+  const [skipLoading, setSkipLoading] = useState(false);
+
+  // Auto-dismiss toast message after 5 seconds (Heuristic 1: Visibility of System Status)
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(''), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const handleCopyTicket = (ticket: QueueEntry) => {
+    navigator.clipboard.writeText(ticket.queue_number);
+    setCopiedId(ticket.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // 1. Load available queue services
   useEffect(() => {
@@ -131,6 +154,22 @@ export const QueueManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Toast Feedback Banner (Heuristic 1: Visibility of System Status) */}
+      {toastMessage && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span className="font-bold text-sm">{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage('')}
+            className="text-emerald-600 hover:text-emerald-900 p-1 rounded-lg hover:bg-emerald-100/50"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Service Selector Tabs */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">
         {queueServices.map((svc) => (
@@ -231,7 +270,7 @@ export const QueueManagement: React.FC = () => {
                     <span>Re-Call</span>
                   </button>
                   <button
-                    onClick={() => handleUpdateStatus(currentCallingOrServing.id, 'skipped')}
+                    onClick={() => setSkippingTicket(currentCallingOrServing)}
                     className="py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold text-xs flex items-center justify-center gap-1.5 transition"
                     title="Mark skipped if no-show"
                   >
@@ -349,6 +388,71 @@ export const QueueManagement: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* CONFIRM SKIP NO-SHOW MODAL (Heuristic 5: Error Prevention & Heuristic 6: Recognition) */}
+      <Modal
+        isOpen={!!skippingTicket}
+        onClose={() => setSkippingTicket(null)}
+        title="Confirm Student No-Show (Skip Ticket)"
+        maxWidth="md"
+      >
+        {skippingTicket && (
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Ticket in Focus
+                </span>
+                <div className="text-3xl font-black font-mono text-slate-900">
+                  {skippingTicket.queue_number}
+                </div>
+                <p className="text-xs font-bold text-slate-800 mt-0.5">
+                  {skippingTicket.first_name} {skippingTicket.last_name}
+                </p>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  ID: {skippingTicket.student_id_number || 'N/A'} • {skippingTicket.department_or_course || 'General'}
+                </p>
+              </div>
+              <Badge status={skippingTicket.status} />
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <span>
+                Marking this ticket as <strong>Skipped</strong> indicates the student did not arrive after repeated calls. They will be removed from the active queue.
+              </span>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSkippingTicket(null)}
+                className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+              >
+                Cancel & Keep Active
+              </button>
+              <button
+                type="button"
+                disabled={skipLoading}
+                onClick={async () => {
+                  setSkipLoading(true);
+                  try {
+                    await handleUpdateStatus(skippingTicket.id, 'skipped');
+                    setToastMessage(`Ticket ${skippingTicket.queue_number} marked as skipped (no-show).`);
+                    setSkippingTicket(null);
+                  } finally {
+                    setSkipLoading(false);
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                <UserX className="w-4 h-4" />
+                <span>{skipLoading ? 'Skipping...' : 'Confirm Skip (No-Show)'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };
