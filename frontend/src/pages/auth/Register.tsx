@@ -81,8 +81,14 @@ export const Register: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50">
       <div className="sm:mx-auto sm:w-full sm:max-w-lg text-center">
-        <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold text-2xl shadow-xl shadow-brand-500/25 mb-4">
-          E
+        <div className="mb-5 flex justify-center">
+          <div className="p-3.5 bg-white rounded-3xl shadow-lg shadow-slate-200/70 border border-slate-100 inline-flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="St. Rita's College of Balingasag Logo" 
+              className="h-16 sm:h-20 w-auto object-contain"
+            />
+          </div>
         </div>
         <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
           Create Student Account

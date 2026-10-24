@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationBell } from './NotificationBell';
+import { LogoutConfirmModal } from './LogoutConfirmModal';
 import { LogOut, Shield, Menu, Monitor } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -12,9 +13,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login');
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
+  const handleLogoutConfirm = async () => {
+    setLogoutLoading(true);
+    try {
+      await logout();
+      setIsLogoutModalOpen(false);
+      navigate('/login?logged_out=1');
+    } finally {
+      setLogoutLoading(false);
+    }
   };
 
   return (
@@ -28,18 +38,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
             <Menu className="w-5 h-5" />
           </button>
           
-          <Link to="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-600 to-indigo-700 flex items-center justify-center text-white font-black text-lg shadow-md shadow-brand-500/20">
-              E
-            </div>
-            <div>
-              <div className="font-extrabold text-slate-900 leading-tight text-base tracking-tight flex items-center gap-1.5">
+          <Link to="/" className="flex items-center gap-3">
+            <img 
+              src="/logo.png" 
+              alt="St. Rita's College of Balingasag Logo" 
+              className="h-10 w-auto object-contain max-w-[150px] sm:max-w-[200px]"
+            />
+            <div className="hidden sm:block border-l border-slate-200 pl-3">
+              <div className="font-extrabold text-slate-900 leading-tight text-sm tracking-tight flex items-center gap-1.5">
                 EduQueue
-                <span className="text-[10px] font-bold px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded-md uppercase tracking-wider">
+                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-brand-100 text-brand-700 rounded-md uppercase tracking-wider">
                   SRCB
                 </span>
               </div>
-              <p className="text-[11px] text-slate-400 font-medium">Student Service Portal</p>
+              <p className="text-[10px] text-slate-400 font-medium">Student Service Portal</p>
             </div>
           </Link>
         </div>
@@ -79,12 +91,22 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </Link>
 
               <button
-                onClick={handleLogout}
+                type="button"
+                onClick={() => setIsLogoutModalOpen(true)}
                 className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
-                title="Logout"
+                title="Sign Out of Account"
+                aria-label="Sign Out of Account"
               >
                 <LogOut className="w-4 h-4" />
               </button>
+
+              <LogoutConfirmModal
+                isOpen={isLogoutModalOpen}
+                onClose={() => setIsLogoutModalOpen(false)}
+                onConfirm={handleLogoutConfirm}
+                loading={logoutLoading}
+                user={user}
+              />
             </div>
           ) : (
             <div className="flex items-center gap-2">

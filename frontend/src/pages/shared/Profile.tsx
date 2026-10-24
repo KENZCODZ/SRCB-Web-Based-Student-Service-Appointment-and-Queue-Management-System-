@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { Badge } from '../../components/common/Badge';
+import { LogoutConfirmModal } from '../../components/common/LogoutConfirmModal';
 import {
   User,
   Lock,
@@ -9,11 +11,27 @@ import {
   AlertCircle,
   Save,
   Shield,
-  KeyRound
+  KeyRound,
+  LogOut
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
+  const handleLogoutConfirm = async () => {
+    setLogoutLoading(true);
+    try {
+      await logout();
+      setIsLogoutModalOpen(false);
+      navigate('/login?logged_out=1');
+    } finally {
+      setLogoutLoading(false);
+    }
+  };
 
   const [profileData, setProfileData] = useState({
     first_name: user?.first_name || '',
@@ -127,7 +145,26 @@ export const Profile: React.FC = () => {
               <strong className="text-slate-800">{user?.department_or_course || '—'}</strong>
             </div>
           </div>
+
+          <div className="pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setIsLogoutModalOpen(true)}
+              className="w-full py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition shadow-xs"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>Sign Out of Account</span>
+            </button>
+          </div>
         </div>
+
+        <LogoutConfirmModal
+          isOpen={isLogoutModalOpen}
+          onClose={() => setIsLogoutModalOpen(false)}
+          onConfirm={handleLogoutConfirm}
+          loading={logoutLoading}
+          user={user}
+        />
 
         {/* Edit Profile & Password Forms */}
         <div className="md:col-span-2 space-y-6">

@@ -22,6 +22,7 @@ export const UserManagement: React.FC = () => {
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [toastError, setToastError] = useState('');
 
   // Account Toggle Confirmation Modal State (Heuristic 5: Error Prevention)
   const [togglingUser, setTogglingUser] = useState<User | null>(null);
@@ -29,11 +30,14 @@ export const UserManagement: React.FC = () => {
 
   // Auto-dismiss toast message after 5 seconds (Heuristic 1: Visibility of System Status)
   useEffect(() => {
-    if (toastMessage) {
-      const timer = setTimeout(() => setToastMessage(''), 5000);
+    if (toastMessage || toastError) {
+      const timer = setTimeout(() => {
+        setToastMessage('');
+        setToastError('');
+      }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [toastMessage]);
+  }, [toastMessage, toastError]);
 
   const [formData, setFormData] = useState({
     email: '',
@@ -113,7 +117,7 @@ export const UserManagement: React.FC = () => {
       setTogglingUser(null);
       loadUsers();
     } catch (e: any) {
-      alert(e.message || 'Failed to toggle account status.');
+      setToastError(e.message || 'Failed to toggle account status.');
     } finally {
       setToggleLoading(false);
     }
@@ -154,6 +158,23 @@ export const UserManagement: React.FC = () => {
           <button
             onClick={() => setToastMessage('')}
             className="text-emerald-600 hover:text-emerald-900 p-1 rounded-lg hover:bg-emerald-100/50"
+            aria-label="Dismiss message"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {toastError && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            <span className="font-bold text-sm">{toastError}</span>
+          </div>
+          <button
+            onClick={() => setToastError('')}
+            className="text-rose-600 hover:text-rose-900 p-1 rounded-lg hover:bg-rose-100/50"
+            aria-label="Dismiss error"
           >
             ✕
           </button>

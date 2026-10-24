@@ -33,8 +33,12 @@ export const PublicDisplay: React.FC = () => {
       {/* Top Banner */}
       <header className="px-8 py-5 bg-gradient-to-r from-blue-950 via-slate-900 to-indigo-950 border-b border-slate-800 flex items-center justify-between shadow-2xl">
         <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-brand-600 flex items-center justify-center font-black text-2xl shadow-lg shadow-brand-500/30">
-            E
+          <div className="p-2 bg-white rounded-2xl shadow-lg border border-white/20 flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="St. Rita's College of Balingasag Logo" 
+              className="h-10 sm:h-12 w-auto object-contain"
+            />
           </div>
           <div>
             <h1 className="text-2xl font-extrabold tracking-tight text-white flex items-center gap-3">

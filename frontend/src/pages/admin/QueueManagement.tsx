@@ -107,14 +107,20 @@ export const QueueManagement: React.FC = () => {
 
   // 4. Update status of ticket
   const handleUpdateStatus = async (ticketId: number, newStatus: string) => {
+    setCallError('');
     try {
       await api.updateQueueStatus(ticketId, {
         status: newStatus,
         counter_number: counterNumber,
       });
+      if (newStatus === 'serving') {
+        setToastMessage(`Started serving student at ${counterNumber}.`);
+      } else if (newStatus === 'completed') {
+        setToastMessage(`Service transaction completed successfully.`);
+      }
       loadQueueTickets();
     } catch (e: any) {
-      alert(e.message || 'Failed to update ticket status.');
+      setCallError(e.message || 'Failed to update ticket status.');
     }
   };
 

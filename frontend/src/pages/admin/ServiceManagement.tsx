@@ -44,6 +44,23 @@ export const ServiceManagement: React.FC = () => {
   const [search, setSearch] = useState('');
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastError, setToastError] = useState('');
+
+  // Service Active Toggle Confirmation Modal State (HCI Heuristic 5: Error Prevention)
+  const [togglingService, setTogglingService] = useState<Service | null>(null);
+  const [toggleLoading, setToggleLoading] = useState(false);
+
+  // Auto-dismiss feedback banner after 5 seconds (HCI Heuristic 1: Visibility of System Status)
+  useEffect(() => {
+    if (toastMessage || toastError) {
+      const timer = setTimeout(() => {
+        setToastMessage('');
+        setToastError('');
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage, toastError]);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -257,9 +274,11 @@ export const ServiceManagement: React.FC = () => {
 
       if (editingService) {
         await api.updateService(editingService.id, payload);
+        setToastMessage(`Service "${formData.name}" (${formData.code}) updated successfully.`);
         setEditingService(null);
       } else {
         await api.createService(payload);
+        setToastMessage(`New service "${formData.name}" (${formData.code}) created successfully.`);
         setIsCreateOpen(false);
       }
       loadServices();
@@ -270,12 +289,24 @@ export const ServiceManagement: React.FC = () => {
     }
   };
 
-  const handleToggleActive = async (service: Service) => {
+  const handleConfirmToggleActive = async () => {
+    if (!togglingService) return;
+    setToggleLoading(true);
+    setToastError('');
     try {
-      await api.toggleServiceActive(service.id, service.is_active !== 1);
+      const willBeActive = togglingService.is_active !== 1;
+      await api.toggleServiceActive(togglingService.id, willBeActive);
+      setToastMessage(
+        `Service "${togglingService.name}" (${togglingService.code}) has been ${
+          willBeActive ? 'activated for bookings & queue' : 'deactivated and hidden from new tickets'
+        }.`
+      );
+      setTogglingService(null);
       loadServices();
     } catch (e: any) {
-      alert(e.message || 'Failed to toggle status');
+      setToastError(e.message || 'Failed to change service status.');
+    } finally {
+      setToggleLoading(false);
     }
   };
 
@@ -307,6 +338,39 @@ export const ServiceManagement: React.FC = () => {
           <span>Add New Service</span>
         </button>
       </div>
+
+      {/* Toast Feedback Banner (HCI Heuristic 1: Visibility of System Status) */}
+      {toastMessage && (
+        <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span className="font-bold text-sm">{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage('')}
+            className="text-emerald-600 hover:text-emerald-900 p-1 rounded-lg hover:bg-emerald-100/50"
+            aria-label="Dismiss message"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {toastError && (
+        <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+            <span className="font-bold text-sm">{toastError}</span>
+          </div>
+          <button
+            onClick={() => setToastError('')}
+            className="text-rose-600 hover:text-rose-900 p-1 rounded-lg hover:bg-rose-100/50"
+            aria-label="Dismiss error"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* Search Bar */}
       <div className="relative w-full sm:w-80">
@@ -402,13 +466,13 @@ export const ServiceManagement: React.FC = () => {
                       <Edit2 className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleToggleActive(service)}
+                      onClick={() => setTogglingService(service)}
                       className={`p-1.5 rounded-lg transition ${
                         service.is_active === 1
                           ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
                           : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
                       }`}
-                      title={service.is_active === 1 ? 'Deactivate' : 'Activate'}
+                      title={service.is_active === 1 ? 'Deactivate Service' : 'Activate Service'}
                     >
                       <Power className="w-4 h-4" />
                     </button>
@@ -860,6 +924,96 @@ export const ServiceManagement: React.FC = () => {
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* SERVICE TOGGLE CONFIRMATION MODAL (HCI Heuristic 5: Error Prevention & Heuristic 6: Recognition) */}
+      <Modal
+        isOpen={!!togglingService}
+        onClose={() => setTogglingService(null)}
+        title={
+          togglingService?.is_active === 1
+            ? 'Deactivate Service Confirmation'
+            : 'Activate Service Confirmation'
+        }
+        maxWidth="md"
+      >
+        {togglingService && (
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Target Service
+                </span>
+                <div className="text-lg font-black text-slate-900 mt-0.5">
+                  {togglingService.name}
+                </div>
+                <div className="text-xs font-mono font-semibold text-brand-600">
+                  {togglingService.code} • {togglingService.category}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Location: {togglingService.location_or_counter || 'Standard Counter'}
+                </p>
+              </div>
+
+              <span
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+                  togglingService.is_active === 1
+                    ? 'bg-emerald-50 text-emerald-700'
+                    : 'bg-slate-100 text-slate-500'
+                }`}
+              >
+                {togglingService.is_active === 1 ? 'Currently Active' : 'Currently Disabled'}
+              </span>
+            </div>
+
+            {togglingService.is_active === 1 ? (
+              <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-900 text-xs flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong className="block font-bold mb-0.5">Deactivation Consequence:</strong>
+                  Students will no longer see this service in their catalog to book appointments or join walk-in queues. Existing confirmed appointments will not be deleted.
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-900 text-xs flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong className="block font-bold mb-0.5">Activation Effect:</strong>
+                  This service will become immediately available in the student portal for online scheduling and counter ticketing during its configured operational hours.
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setTogglingService(null)}
+                className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+              >
+                Cancel & Keep Status
+              </button>
+              <button
+                type="button"
+                disabled={toggleLoading}
+                onClick={handleConfirmToggleActive}
+                className={`px-5 py-2.5 rounded-xl text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-50 ${
+                  togglingService.is_active === 1
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
+              >
+                <Power className="w-4 h-4" />
+                <span>
+                  {toggleLoading
+                    ? 'Updating...'
+                    : togglingService.is_active === 1
+                    ? 'Yes, Deactivate Service'
+                    : 'Yes, Activate Service'}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

@@ -44,7 +44,7 @@ export const StudentDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="rounded-3xl bg-gradient-to-r from-brand-700 via-brand-800 to-indigo-900 p-6 sm:p-8 text-white shadow-xl shadow-brand-900/10 relative overflow-hidden">
+      <div className="rounded-3xl bg-gradient-to-r from-brand-700 via-brand-800 to-indigo-900 p-6 sm:p-8 text-white shadow-xl shadow-brand-900/10 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="relative z-10 max-w-2xl">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-brand-200 border border-white/10 mb-3">
             <Sparkles className="w-3.5 h-3.5" />
@@ -72,6 +72,14 @@ export const StudentDashboard: React.FC = () => {
               <span>My Appointments</span>
             </Link>
           </div>
+        </div>
+
+        <div className="hidden lg:flex flex-shrink-0 items-center justify-center p-3.5 bg-white rounded-2xl shadow-xl shadow-brand-950/20 border border-white/30">
+          <img 
+            src="/logo.png" 
+            alt="St. Rita's College of Balingasag Logo" 
+            className="h-14 w-auto object-contain"
+          />
         </div>
       </div>
 

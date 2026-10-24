@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { LogIn, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { LogIn, AlertCircle, ArrowRight, ShieldCheck, CheckCircle2, Eye, EyeOff, X } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login } = useAuth();
@@ -10,11 +10,14 @@ export const Login: React.FC = () => {
 
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const queryParams = new URLSearchParams(location.search);
   const expired = queryParams.get('expired');
+  const loggedOutParam = queryParams.get('logged_out');
+  const [loggedOutNotice, setLoggedOutNotice] = useState(Boolean(loggedOutParam));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +59,14 @@ export const Login: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col justify-center py-12 sm:px-6 lg:px-8 bg-gradient-to-br from-slate-50 via-slate-100 to-blue-50">
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-600 items-center justify-center text-white font-extrabold text-2xl shadow-xl shadow-brand-500/25 mb-4">
-          E
+        <div className="mb-5 flex justify-center">
+          <div className="p-3.5 bg-white rounded-3xl shadow-lg shadow-slate-200/70 border border-slate-100 inline-flex items-center justify-center">
+            <img 
+              src="/logo.png" 
+              alt="St. Rita's College of Balingasag Logo" 
+              className="h-16 sm:h-20 w-auto object-contain"
+            />
+          </div>
         </div>
         <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">
           Welcome to EduQueue
@@ -69,6 +78,28 @@ export const Login: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/50 sm:rounded-3xl sm:px-10 border border-slate-100">
+          {loggedOutNotice && (
+            <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-900 text-xs flex items-center justify-between gap-2 shadow-xs animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
+                <div>
+                  <strong className="font-bold block text-emerald-950">Successfully Signed Out</strong>
+                  <span className="text-[11px] text-emerald-800">Your session has been securely closed. Thank you!</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLoggedOutNotice(false)}
+                className="p-1 text-emerald-600 hover:text-emerald-900 hover:bg-emerald-100 rounded-lg transition"
+                title="Dismiss message"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {expired && (
             <div className="mb-5 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 flex-shrink-0 text-amber-600" />
@@ -104,14 +135,25 @@ export const Login: React.FC = () => {
                   Password
                 </label>
               </div>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition"
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full pl-4 pr-11 py-3 rounded-xl border border-slate-200 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-600 transition"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-lg transition"
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
 
             <button
