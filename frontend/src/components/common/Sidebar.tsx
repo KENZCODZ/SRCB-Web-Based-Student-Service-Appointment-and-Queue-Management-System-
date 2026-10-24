@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React from 'react';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { LogoutConfirmModal } from './LogoutConfirmModal';
 import {
   LayoutDashboard,
   Calendar,
@@ -9,12 +8,9 @@ import {
   Layers,
   Users,
   FileText,
-  UserCheck,
-  Settings,
   X,
   Radio,
-  Sliders,
-  LogOut
+  Sliders
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,23 +19,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
-  const { user, logout, isAdmin, isStaff, isStudent } = useAuth();
-  const navigate = useNavigate();
-
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const [logoutLoading, setLogoutLoading] = useState(false);
-
-  const handleLogoutConfirm = async () => {
-    setLogoutLoading(true);
-    try {
-      await logout();
-      setIsLogoutModalOpen(false);
-      onClose();
-      navigate('/login?logged_out=1');
-    } finally {
-      setLogoutLoading(false);
-    }
-  };
+  const { isAdmin, isStaff, isStudent, isLogoutModalOpen } = useAuth();
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition ${
@@ -51,7 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   return (
     <>
       {/* Mobile backdrop */}
-      {isOpen && (
+      {isOpen && !isLogoutModalOpen && (
         <div
           onClick={onClose}
           className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm lg:hidden"
@@ -61,7 +41,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       <aside
         className={`fixed top-0 left-0 z-40 h-screen w-64 bg-white border-r border-slate-200/80 flex flex-col transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:static lg:h-[calc(100vh-4rem)]`}
+        } lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:self-start lg:flex-shrink-0 ${
+          isLogoutModalOpen ? 'hidden lg:hidden' : ''
+        }`}
       >
         {/* Mobile Header with close button */}
         <div className="flex items-center justify-between p-4 border-b border-slate-100 lg:hidden">
@@ -151,56 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               </nav>
             </div>
           )}
-
-          {/* Shared Account Links */}
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-3 mb-2">
-              My Account
-            </div>
-            <nav className="space-y-1">
-              <NavLink to="/profile" onClick={onClose} className={navLinkClass}>
-                <UserCheck className="w-4 h-4" />
-                <span>My Profile</span>
-              </NavLink>
-            </nav>
-          </div>
         </div>
-
-        {/* User Card at bottom with Sign Out option */}
-        {user && (
-          <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2.5 overflow-hidden flex-1">
-                <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-xs flex-shrink-0">
-                  {user.first_name[0]}{user.last_name[0]}
-                </div>
-                <div className="overflow-hidden flex-1">
-                  <p className="text-xs font-bold text-slate-800 truncate">
-                    {user.first_name} {user.last_name}
-                  </p>
-                  <p className="text-[10px] text-slate-500 truncate capitalize font-medium">{user.role}</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsLogoutModalOpen(true)}
-                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition flex-shrink-0"
-                title="Sign Out of Account"
-                aria-label="Sign Out of Account"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        <LogoutConfirmModal
-          isOpen={isLogoutModalOpen}
-          onClose={() => setIsLogoutModalOpen(false)}
-          onConfirm={handleLogoutConfirm}
-          loading={logoutLoading}
-          user={user}
-        />
       </aside>
     </>
   );

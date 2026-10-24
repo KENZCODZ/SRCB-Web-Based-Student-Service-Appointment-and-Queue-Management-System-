@@ -1,31 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { NotificationBell } from './NotificationBell';
-import { LogoutConfirmModal } from './LogoutConfirmModal';
 import { LogOut, Shield, Menu, Monitor } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 interface NavbarProps {
   onToggleSidebar?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
-  const { user, logout, isAdmin } = useAuth();
-  const navigate = useNavigate();
-
-  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
-  const [logoutLoading, setLogoutLoading] = useState(false);
-
-  const handleLogoutConfirm = async () => {
-    setLogoutLoading(true);
-    try {
-      await logout();
-      setIsLogoutModalOpen(false);
-      navigate('/login?logged_out=1');
-    } finally {
-      setLogoutLoading(false);
-    }
-  };
+  const { user, isAdmin, openLogoutModal } = useAuth();
 
   return (
     <header className="sticky top-0 z-30 bg-white border-b border-slate-200/80 shadow-sm">
@@ -34,6 +18,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           <button
             onClick={onToggleSidebar}
             className="lg:hidden p-2 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-xl"
+            aria-label="Toggle Navigation Menu"
           >
             <Menu className="w-5 h-5" />
           </button>
@@ -92,21 +77,13 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
 
               <button
                 type="button"
-                onClick={() => setIsLogoutModalOpen(true)}
+                onClick={openLogoutModal}
                 className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition"
                 title="Sign Out of Account"
                 aria-label="Sign Out of Account"
               >
                 <LogOut className="w-4 h-4" />
               </button>
-
-              <LogoutConfirmModal
-                isOpen={isLogoutModalOpen}
-                onClose={() => setIsLogoutModalOpen(false)}
-                onConfirm={handleLogoutConfirm}
-                loading={logoutLoading}
-                user={user}
-              />
             </div>
           ) : (
             <div className="flex items-center gap-2">

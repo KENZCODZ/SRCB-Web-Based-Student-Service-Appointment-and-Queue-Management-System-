@@ -15,6 +15,9 @@ interface AuthContextType {
   isAdmin: boolean;
   isStaff: boolean;
   isStudent: boolean;
+  isLogoutModalOpen: boolean;
+  openLogoutModal: () => void;
+  closeLogoutModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +29,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('eduqueue_token'));
   const [loading, setLoading] = useState<boolean>(true);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState<boolean>(false);
+
+  const openLogoutModal = () => setIsLogoutModalOpen(true);
+  const closeLogoutModal = () => setIsLogoutModalOpen(false);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -72,6 +79,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await api.logout();
     setUser(null);
     setToken(null);
+    setIsLogoutModalOpen(false);
   };
 
   const updateUser = (updatedUser: User) => {
@@ -108,6 +116,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAdmin,
         isStaff,
         isStudent,
+        isLogoutModalOpen,
+        openLogoutModal,
+        closeLogoutModal,
       }}
     >
       {children}
