@@ -14,8 +14,7 @@ USE `student_services_db`;
 INSERT INTO `users` (`id`, `student_id_number`, `first_name`, `last_name`, `email`, `password_hash`, `role`, `contact_number`, `department_or_course`, `year_level`, `is_active`) VALUES
 (1, NULL, 'System', 'Administrator', 'admin@srcb.edu.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', '09123456789', 'Information Technology Office', NULL, 1),
 (2, NULL, 'Maria', 'Santos', 'staff@srcb.edu.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'staff', '09234567890', 'Registrar Office', NULL, 1),
-(3, '2026-0001', 'Juan', 'Dela Cruz', 'student1@srcb.edu.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'student', '09345678901', 'BS Information Technology', '3rd Year', 1),
-(4, '2026-0002', 'Ana', 'Reyes', 'student2@srcb.edu.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'student', '09456789012', 'BS Business Administration', '2nd Year', 1)
+(3, '2026-0001', 'Juan', 'Dela Cruz', 'student1@srcb.edu.ph', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'student', '09345678901', 'BS Information Technology', '3rd Year', 1)
 ON DUPLICATE KEY UPDATE `email` = VALUES(`email`);
 
 -- 2. Insert Standard Institutional Services

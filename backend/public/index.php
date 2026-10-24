@@ -116,6 +116,7 @@ $router->put('/api/services/{id}/toggle', [ServiceController::class, 'toggle'], 
 
 $router->get('/api/users', [UserController::class, 'index'], $adminRoleMw);
 $router->post('/api/users', [UserController::class, 'store'], $adminRoleMw);
+$router->put('/api/users/{id}', [UserController::class, 'update'], $adminRoleMw);
 $router->put('/api/users/{id}/toggle', [UserController::class, 'toggleActive'], $adminRoleMw);
 
 $router->get('/api/audit-logs', [AuditController::class, 'index'], $adminRoleMw);

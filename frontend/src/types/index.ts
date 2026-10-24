@@ -201,4 +201,32 @@ export interface DashboardStats {
     active_queue_tickets: number;
   };
   next_appointment?: Appointment | null;
+  recent_appointments?: Appointment[];
+  active_tickets?: QueueEntry[];
+  live_queue_entries?: QueueEntry[];
+  today_appointments_list?: Appointment[];
+  counter_summaries?: Array<{
+    service_id: number;
+    service_name: string;
+    service_code: string;
+    service_category: string;
+    location_or_counter: string;
+    waiting_count: number;
+    current_ticket: string | null;
+    current_status: QueueStatus | null;
+    counter_number: string | null;
+  }>;
+  recent_completed_today?: QueueEntry[];
+  live_services?: Array<{
+    id: number;
+    name: string;
+    code: string;
+    category: string;
+    location_or_counter: string;
+    estimated_duration_mins: number;
+    waiting_count: number;
+    now_serving: string | null;
+    estimated_wait_mins: number;
+  }>;
+  server_time?: string;
 }

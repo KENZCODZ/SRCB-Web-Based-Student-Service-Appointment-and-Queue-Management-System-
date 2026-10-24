@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { User, UserRole } from '../../types';
+import { User, UserRole, Service } from '../../types';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import {
@@ -10,25 +10,31 @@ import {
   Search,
   CheckCircle2,
   AlertCircle,
-  Shield,
-  ShieldAlert,
-  UserCheck
+  Building2,
+  GraduationCap,
+  Pencil,
+  ShieldCheck,
+  UserCheck,
+  Sparkles,
+  Lock
 } from 'lucide-react';
 
 export const UserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [roleFilter, setRoleFilter] = useState('');
   const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastError, setToastError] = useState('');
 
-  // Account Toggle Confirmation Modal State (Heuristic 5: Error Prevention)
+  // Account Toggle Confirmation Modal State
   const [togglingUser, setTogglingUser] = useState<User | null>(null);
   const [toggleLoading, setToggleLoading] = useState(false);
 
-  // Auto-dismiss toast message after 5 seconds (Heuristic 1: Visibility of System Status)
+  // Auto-dismiss toast message after 5 seconds
   useEffect(() => {
     if (toastMessage || toastError) {
       const timer = setTimeout(() => {
@@ -39,6 +45,31 @@ export const UserManagement: React.FC = () => {
     }
   }, [toastMessage, toastError]);
 
+  // Standard student courses & year levels
+  const courses = [
+    'BS Information Technology',
+    'BS Computer Science',
+    'BS Business Administration',
+    'BS Hospitality Management',
+    'Bachelor of Elementary Education',
+    'Bachelor of Secondary Education',
+    'BS Criminology',
+    'Senior High School',
+  ];
+  const yearLevels = ['1st Year', '2nd Year', '3rd Year', '4th Year', 'Grade 11', 'Grade 12'];
+
+  // Base list of campus offices; will also merge unique categories from active services
+  const defaultOffices = [
+    'Registrar Office',
+    'Finance / Cashier Office',
+    'IT Department',
+    'Guidance Office',
+    'Dean Office',
+    'Library',
+    'All Offices / System Administration'
+  ];
+
+  // Form states for creating a new account
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
@@ -50,17 +81,38 @@ export const UserManagement: React.FC = () => {
     year_level: '',
     password: 'password123',
   });
-
+  const [customOffice, setCustomOffice] = useState('');
+  const [isCustomOffice, setIsCustomOffice] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
-  const loadUsers = async () => {
+  // Form states for editing an existing account
+  const [editFormData, setEditFormData] = useState({
+    first_name: '',
+    last_name: '',
+    role: 'staff' as UserRole,
+    student_id_number: '',
+    contact_number: '',
+    department_or_course: '',
+    year_level: '',
+    password: '',
+  });
+  const [editCustomOffice, setEditCustomOffice] = useState('');
+  const [isEditCustomOffice, setIsEditCustomOffice] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState('');
+
+  const loadData = async () => {
     try {
-      const res = await api.getUsers({
-        role: roleFilter || undefined,
-        search: search || undefined,
-      });
-      setUsers(res.data || []);
+      const [usersRes, servicesRes] = await Promise.all([
+        api.getUsers({
+          role: roleFilter || undefined,
+          search: search || undefined,
+        }),
+        api.getServices({ all: true })
+      ]);
+      setUsers(usersRes.data || []);
+      setServices(servicesRes.data || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -69,13 +121,28 @@ export const UserManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    loadUsers();
+    loadData();
   }, [roleFilter]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    loadUsers();
+    loadData();
   };
+
+  // Derive dynamic registered offices from services
+  const registeredOffices = Array.from(
+    new Set([
+      ...defaultOffices,
+      ...services.map(s => {
+        if (!s.category) return '';
+        const cat = s.category.trim();
+        if (cat.toLowerCase().includes('office') || cat.toLowerCase().includes('department') || cat.toLowerCase().includes('library')) {
+          return cat;
+        }
+        return `${cat} Office`;
+      }).filter(Boolean)
+    ])
+  );
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,9 +150,20 @@ export const UserManagement: React.FC = () => {
     setFormError('');
 
     try {
-      await api.createUser(formData);
+      const officeOrCourse =
+        formData.role === 'student'
+          ? formData.department_or_course
+          : isCustomOffice
+          ? customOffice.trim() || 'General Operations'
+          : formData.department_or_course;
+
+      await api.createUser({
+        ...formData,
+        department_or_course: officeOrCourse,
+      });
+
       setIsCreateOpen(false);
-      setToastMessage(`Account for ${formData.first_name} ${formData.last_name} (${formData.email}) created successfully.`);
+      setToastMessage(`Account for ${formData.first_name} ${formData.last_name} (${formData.email}) provisioned successfully.`);
       setFormData({
         email: '',
         first_name: '',
@@ -97,11 +175,65 @@ export const UserManagement: React.FC = () => {
         year_level: '',
         password: 'password123',
       });
-      loadUsers();
+      setIsCustomOffice(false);
+      setCustomOffice('');
+      loadData();
     } catch (err: any) {
-      setFormError(err.message || 'Failed to create user account.');
+      setFormError(err.message || 'Failed to provision user account.');
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleOpenEdit = (user: User) => {
+    setEditingUser(user);
+    const isCustom =
+      user.role !== 'student' &&
+      !!user.department_or_course &&
+      !registeredOffices.includes(user.department_or_course);
+
+    setEditFormData({
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      role: user.role,
+      student_id_number: user.student_id_number || '',
+      contact_number: user.contact_number || '',
+      department_or_course: isCustom ? 'custom' : user.department_or_course || (user.role === 'student' ? courses[0] : registeredOffices[0]),
+      year_level: user.year_level || yearLevels[0],
+      password: '',
+    });
+    setIsEditCustomOffice(isCustom);
+    setEditCustomOffice(isCustom ? (user.department_or_course || '') : '');
+    setEditError('');
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditLoading(true);
+    setEditError('');
+
+    try {
+      const officeOrCourse =
+        editFormData.role === 'student'
+          ? editFormData.department_or_course
+          : isEditCustomOffice
+          ? editCustomOffice.trim() || 'General Operations'
+          : editFormData.department_or_course;
+
+      await api.updateUser(editingUser.id, {
+        ...editFormData,
+        department_or_course: officeOrCourse,
+        password: editFormData.password ? editFormData.password : undefined,
+      });
+
+      setEditingUser(null);
+      setToastMessage(`Account for ${editFormData.first_name} ${editFormData.last_name} updated successfully.`);
+      loadData();
+    } catch (err: any) {
+      setEditError(err.message || 'Failed to update user account.');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -115,7 +247,7 @@ export const UserManagement: React.FC = () => {
         `User ${togglingUser.first_name} ${togglingUser.last_name} account has been ${newStatus ? 'activated' : 'disabled'}.`
       );
       setTogglingUser(null);
-      loadUsers();
+      loadData();
     } catch (e: any) {
       setToastError(e.message || 'Failed to toggle account status.');
     } finally {
@@ -128,11 +260,14 @@ export const UserManagement: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            User Account Management
+          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+            <span>User Provisioning & Accounts</span>
+            <span className="text-xs font-bold px-2.5 py-0.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-md uppercase">
+              Admin Governance
+            </span>
           </h1>
           <p className="text-sm text-slate-500 mt-0.5">
-            Administer student, staff, and administrator credentials and access permissions.
+            Provision staff to registered campus offices, manage role permissions, and govern active accounts.
           </p>
         </div>
 
@@ -141,25 +276,21 @@ export const UserManagement: React.FC = () => {
             setIsCreateOpen(true);
             setFormError('');
           }}
-          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center justify-center gap-2 transition"
+          className="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-xl shadow-sm flex items-center gap-1.5 transition self-start sm:self-auto"
         >
           <UserPlus className="w-4 h-4" />
-          <span>Provision User Account</span>
+          <span>Provision Account</span>
         </button>
       </div>
 
-      {/* Toast Feedback Banner (Heuristic 1: Visibility of System Status) */}
+      {/* Toast Feedback Banners */}
       {toastMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-            <span className="font-bold text-sm">{toastMessage}</span>
+            <span className="font-semibold">{toastMessage}</span>
           </div>
-          <button
-            onClick={() => setToastMessage('')}
-            className="text-emerald-600 hover:text-emerald-900 p-1 rounded-lg hover:bg-emerald-100/50"
-            aria-label="Dismiss message"
-          >
+          <button onClick={() => setToastMessage('')} className="text-emerald-600 hover:text-emerald-900 font-bold">
             ✕
           </button>
         </div>
@@ -169,22 +300,18 @@ export const UserManagement: React.FC = () => {
         <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 flex-shrink-0" />
-            <span className="font-bold text-sm">{toastError}</span>
+            <span className="font-semibold">{toastError}</span>
           </div>
-          <button
-            onClick={() => setToastError('')}
-            className="text-rose-600 hover:text-rose-900 p-1 rounded-lg hover:bg-rose-100/50"
-            aria-label="Dismiss error"
-          >
+          <button onClick={() => setToastError('')} className="text-rose-600 hover:text-rose-900 font-bold">
             ✕
           </button>
         </div>
       )}
 
-      {/* Filters Bar with Clear Option (Heuristic 7: Flexibility & Efficiency) */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200/80 shadow-sm flex flex-col md:flex-row items-center gap-3">
-        <form onSubmit={handleSearchSubmit} className="relative flex-1 w-full">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+      {/* Filters and Search Bar */}
+      <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <form onSubmit={handleSearchSubmit} className="relative w-full md:w-96">
+          <Search className="w-4 h-4 absolute left-3.5 top-3 text-slate-400" />
           <input
             type="text"
             placeholder="Search email, name, or student ID..."
@@ -197,7 +324,7 @@ export const UserManagement: React.FC = () => {
               type="button"
               onClick={() => {
                 setSearch('');
-                loadUsers();
+                loadData();
               }}
               className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 text-xs"
               title="Clear search"
@@ -227,7 +354,7 @@ export const UserManagement: React.FC = () => {
               <tr className="border-b border-slate-100 bg-slate-50/75 text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 <th className="py-4 px-6">User / Name</th>
                 <th className="py-4 px-6">Role</th>
-                <th className="py-4 px-6">Department / Program</th>
+                <th className="py-4 px-6">Assigned Office / Course</th>
                 <th className="py-4 px-6">Contact Number</th>
                 <th className="py-4 px-6">Status</th>
                 <th className="py-4 px-6 text-right">Actions</th>
@@ -253,17 +380,27 @@ export const UserManagement: React.FC = () => {
                       <div className="font-bold text-slate-900 text-sm">
                         {u.first_name} {u.last_name}
                       </div>
-                      <div className="text-slate-400 text-xs">
+                      <div className="text-slate-400 text-xs font-mono">
                         {u.email} {u.student_id_number ? `• ${u.student_id_number}` : ''}
                       </div>
                     </td>
                     <td className="py-4 px-6">
                       <Badge status={u.role} />
                     </td>
-                    <td className="py-4 px-6 text-slate-600">
-                      {u.department_or_course || '—'} {u.year_level ? `(${u.year_level})` : ''}
+                    <td className="py-4 px-6">
+                      {u.role === 'student' ? (
+                        <div className="flex items-center gap-1.5 text-slate-700">
+                          <GraduationCap className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
+                          <span>{u.department_or_course || '—'} {u.year_level ? `(${u.year_level})` : ''}</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-slate-800 font-semibold">
+                          <Building2 className="w-3.5 h-3.5 text-indigo-600 flex-shrink-0" />
+                          <span>{u.department_or_course || 'Institutional Superadmin'}</span>
+                        </div>
+                      )}
                     </td>
-                    <td className="py-4 px-6 text-slate-500">
+                    <td className="py-4 px-6 text-slate-500 font-mono">
                       {u.contact_number || '—'}
                     </td>
                     <td className="py-4 px-6">
@@ -277,17 +414,26 @@ export const UserManagement: React.FC = () => {
                       </span>
                     </td>
                     <td className="py-4 px-6 text-right">
-                      <button
-                        onClick={() => setTogglingUser(u)}
-                        className={`p-1.5 rounded-lg transition ${
-                          u.is_active === 1
-                            ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                            : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
-                        }`}
-                        title={u.is_active === 1 ? 'Disable Account' : 'Enable Account'}
-                      >
-                        <Power className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => handleOpenEdit(u)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition"
+                          title="Edit User Provisioning"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setTogglingUser(u)}
+                          className={`p-1.5 rounded-lg transition ${
+                            u.is_active === 1
+                              ? 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                              : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                          }`}
+                          title={u.is_active === 1 ? 'Disable Account' : 'Enable Account'}
+                        >
+                          <Power className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -297,7 +443,7 @@ export const UserManagement: React.FC = () => {
         </div>
       </div>
 
-      {/* CREATE USER MODAL */}
+      {/* PROVISION NEW USER MODAL */}
       <Modal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
@@ -318,12 +464,21 @@ export const UserManagement: React.FC = () => {
             </label>
             <select
               value={formData.role}
-              onChange={(e) => setFormData({ ...formData, role: e.target.value as UserRole })}
-              className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm bg-white"
+              onChange={(e) => {
+                const newRole = e.target.value as UserRole;
+                setFormData(prev => ({
+                  ...prev,
+                  role: newRole,
+                  department_or_course: newRole === 'student' ? courses[0] : registeredOffices[0],
+                  year_level: newRole === 'student' ? yearLevels[0] : '',
+                }));
+                setIsCustomOffice(false);
+              }}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium"
             >
-              <option value="staff">Staff Personnel</option>
-              <option value="admin">Administrator</option>
-              <option value="student">Student</option>
+              <option value="staff">Staff Personnel (Office Operations)</option>
+              <option value="admin">Administrator (System Governance)</option>
+              <option value="student">Student Account</option>
             </select>
           </div>
 
@@ -337,7 +492,7 @@ export const UserManagement: React.FC = () => {
                 required
                 value={formData.first_name}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
               />
             </div>
             <div>
@@ -349,7 +504,7 @@ export const UserManagement: React.FC = () => {
                 required
                 value={formData.last_name}
                 onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
               />
             </div>
           </div>
@@ -365,51 +520,128 @@ export const UserManagement: React.FC = () => {
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 placeholder="user@srcb.edu.ph"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
               />
             </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Student ID (if Student)
+                Mobile / Contact Number
               </label>
               <input
-                type="text"
-                value={formData.student_id_number}
-                onChange={(e) => setFormData({ ...formData, student_id_number: e.target.value })}
-                placeholder="2026-0001"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
+                type="tel"
+                value={formData.contact_number}
+                onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                placeholder="09123456789"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Department / Program
+          {/* Dynamic Office Dropdown for Staff / Admin */}
+          {formData.role !== 'student' ? (
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Assigned Office / Department *
               </label>
-              <input
-                type="text"
-                value={formData.department_or_course}
-                onChange={(e) => setFormData({ ...formData, department_or_course: e.target.value })}
-                placeholder="e.g. Registrar Office or BSIT"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
-              />
+              <select
+                value={isCustomOffice ? 'custom' : formData.department_or_course}
+                onChange={(e) => {
+                  if (e.target.value === 'custom') {
+                    setIsCustomOffice(true);
+                  } else {
+                    setIsCustomOffice(false);
+                    setFormData({ ...formData, department_or_course: e.target.value });
+                  }
+                }}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium"
+              >
+                {registeredOffices.map((office) => (
+                  <option key={office} value={office}>
+                    {office}
+                  </option>
+                ))}
+                <option value="custom">+ Other / Custom Office...</option>
+              </select>
+
+              {isCustomOffice && (
+                <input
+                  type="text"
+                  required
+                  value={customOffice}
+                  onChange={(e) => setCustomOffice(e.target.value)}
+                  placeholder="Enter custom office / department name..."
+                  className="w-full px-4 py-2 rounded-xl border border-brand-300 text-sm bg-brand-50/30"
+                />
+              )}
+              <p className="text-[11px] text-slate-400">
+                Staff members operate appointments and queue counters designated for this office.
+              </p>
             </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Initial Password
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm font-mono"
-              />
+          ) : (
+            /* Program and Year Level for Student */
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Student ID Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.student_id_number}
+                    onChange={(e) => setFormData({ ...formData, student_id_number: e.target.value })}
+                    placeholder="2026-0001"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Year Level
+                  </label>
+                  <select
+                    value={formData.year_level}
+                    onChange={(e) => setFormData({ ...formData, year_level: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white"
+                  >
+                    {yearLevels.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Program / Course
+                </label>
+                <select
+                  value={formData.department_or_course}
+                  onChange={(e) => setFormData({ ...formData, department_or_course: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white"
+                >
+                  {courses.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
             </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Initial Password *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono"
+            />
           </div>
 
-          <div className="pt-3 flex justify-end gap-2">
+          <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
             <button
               type="button"
               onClick={() => setIsCreateOpen(false)}
@@ -420,15 +652,222 @@ export const UserManagement: React.FC = () => {
             <button
               type="submit"
               disabled={formLoading}
-              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
             >
-              {formLoading ? 'Creating...' : 'Create Account'}
+              {formLoading ? 'Provisioning...' : 'Provision Account'}
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* TOGGLE ACTIVE STATUS CONFIRMATION MODAL (Heuristic 5: Error Prevention & Heuristic 6: Recognition) */}
+      {/* EDIT USER PROVISIONING MODAL */}
+      <Modal
+        isOpen={!!editingUser}
+        onClose={() => setEditingUser(null)}
+        title="Update User Provisioning"
+        maxWidth="md"
+      >
+        {editingUser && (
+          <form onSubmit={handleUpdateUser} className="space-y-4">
+            {editError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{editError}</span>
+              </div>
+            )}
+
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl text-xs flex items-center justify-between">
+              <div>
+                <span className="text-slate-400 font-medium">Account Email:</span>
+                <strong className="block text-slate-900 font-mono text-sm">{editingUser.email}</strong>
+              </div>
+              <Badge status={editingUser.role} />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Account Role *
+              </label>
+              <select
+                value={editFormData.role}
+                onChange={(e) => {
+                  const newRole = e.target.value as UserRole;
+                  setEditFormData(prev => ({
+                    ...prev,
+                    role: newRole,
+                    department_or_course: newRole === 'student' ? courses[0] : registeredOffices[0],
+                    year_level: newRole === 'student' ? (prev.year_level || yearLevels[0]) : '',
+                  }));
+                  setIsEditCustomOffice(false);
+                }}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium"
+              >
+                <option value="staff">Staff Personnel (Office Operations)</option>
+                <option value="admin">Administrator (System Governance)</option>
+                <option value="student">Student Account</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.first_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                  Last Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editFormData.last_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Contact Number
+              </label>
+              <input
+                type="tel"
+                value={editFormData.contact_number}
+                onChange={(e) => setEditFormData({ ...editFormData, contact_number: e.target.value })}
+                placeholder="09123456789"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+              />
+            </div>
+
+            {/* Office Dropdown for Staff / Admin in Edit */}
+            {editFormData.role !== 'student' ? (
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Assigned Office / Department *
+                </label>
+                <select
+                  value={isEditCustomOffice ? 'custom' : editFormData.department_or_course}
+                  onChange={(e) => {
+                    if (e.target.value === 'custom') {
+                      setIsEditCustomOffice(true);
+                    } else {
+                      setIsEditCustomOffice(false);
+                      setEditFormData({ ...editFormData, department_or_course: e.target.value });
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium"
+                >
+                  {registeredOffices.map((office) => (
+                    <option key={office} value={office}>
+                      {office}
+                    </option>
+                  ))}
+                  <option value="custom">+ Other / Custom Office...</option>
+                </select>
+
+                {isEditCustomOffice && (
+                  <input
+                    type="text"
+                    required
+                    value={editCustomOffice}
+                    onChange={(e) => setEditCustomOffice(e.target.value)}
+                    placeholder="Enter custom office / department name..."
+                    className="w-full px-4 py-2 rounded-xl border border-brand-300 text-sm bg-brand-50/30"
+                  />
+                )}
+              </div>
+            ) : (
+              /* Student details in Edit */
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Student ID Number
+                    </label>
+                    <input
+                      type="text"
+                      value={editFormData.student_id_number}
+                      onChange={(e) => setEditFormData({ ...editFormData, student_id_number: e.target.value })}
+                      placeholder="2026-0001"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                      Year Level
+                    </label>
+                    <select
+                      value={editFormData.year_level}
+                      onChange={(e) => setEditFormData({ ...editFormData, year_level: e.target.value })}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white"
+                    >
+                      {yearLevels.map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                    Program / Course
+                  </label>
+                  <select
+                    value={editFormData.department_or_course}
+                    onChange={(e) => setEditFormData({ ...editFormData, department_or_course: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white"
+                  >
+                    {courses.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Reset Password <span className="text-slate-400 font-normal lowercase">(leave blank to keep current)</span>
+              </label>
+              <input
+                type="text"
+                value={editFormData.password}
+                onChange={(e) => setEditFormData({ ...editFormData, password: e.target.value })}
+                placeholder="Enter new password if changing..."
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono"
+              />
+            </div>
+
+            <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setEditingUser(null)}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={editLoading}
+                className="px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
+              >
+                {editLoading ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* TOGGLE ACTIVE STATUS CONFIRMATION MODAL */}
       <Modal
         isOpen={!!togglingUser}
         onClose={() => setTogglingUser(null)}

@@ -121,8 +121,7 @@ All seed accounts use the default password: **`password123`**
 | :--- | :--- | :--- |
 | **Administrator** | `admin@srcb.edu.ph` | Full system administration, service configuration, user management, audit logs |
 | **Staff Personnel** | `staff@srcb.edu.ph` | Appointment approval/rescheduling, Queue counter calling & servicing |
-| **Student 1** | `student1@srcb.edu.ph` (ID: `2026-0001`) | BSIT 3rd Year Student Account |
-| **Student 2** | `student2@srcb.edu.ph` (ID: `2026-0002`) | BSBA 2nd Year Student Account |
+| **Student** | `student1@srcb.edu.ph` (ID: `2026-0001`) | BSIT 3rd Year Student Account |
 
 *(Quick demo fill buttons are also provided on the Login page for one-click testing)*
 

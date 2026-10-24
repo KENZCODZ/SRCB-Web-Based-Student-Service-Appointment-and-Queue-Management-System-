@@ -104,4 +104,60 @@ class UserController {
         AuditService::log($admin['id'], $isActive ? 'ACTIVATE_USER' : 'DEACTIVATE_USER', 'user', $id);
         Response::json(null, 200, 'User status updated.');
     }
+
+    public function update(Request $request, array $params): void {
+        $admin = $request->getUser();
+        $id = (int)($params['id'] ?? 0);
+        $body = $request->getBody();
+
+        $db = Database::getConnection();
+        $stmt = $db->prepare("SELECT * FROM users WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+        $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$user) {
+            Response::error('User account not found.', 404);
+        }
+
+        $firstName = trim($body['first_name'] ?? $user['first_name']);
+        $lastName = trim($body['last_name'] ?? $user['last_name']);
+        $role = trim($body['role'] ?? $user['role']);
+        $contact = trim($body['contact_number'] ?? $user['contact_number'] ?? '');
+        $departmentOrCourse = trim($body['department_or_course'] ?? $user['department_or_course'] ?? '');
+        $studentId = trim($body['student_id_number'] ?? $user['student_id_number'] ?? '');
+        $yearLevel = trim($body['year_level'] ?? $user['year_level'] ?? '');
+
+        if (!in_array($role, ['admin', 'staff', 'student'], true)) {
+            Response::error('Invalid account role.', 422);
+        }
+
+        $sql = "UPDATE users SET first_name = :first_name, last_name = :last_name, role = :role, contact_number = :contact, department_or_course = :dept, student_id_number = :student_id, year_level = :year_level";
+        $sqlParams = [
+            'first_name' => $firstName,
+            'last_name'  => $lastName,
+            'role'       => $role,
+            'contact'    => $contact ?: null,
+            'dept'       => $departmentOrCourse ?: null,
+            'student_id' => $studentId ?: null,
+            'year_level' => $yearLevel ?: null,
+            'id'         => $id
+        ];
+
+        if (!empty($body['password'])) {
+            $sql .= ", password_hash = :hash";
+            $sqlParams['hash'] = password_hash($body['password'], PASSWORD_BCRYPT, ['cost' => 10]);
+        }
+
+        $sql .= " WHERE id = :id";
+        $updateStmt = $db->prepare($sql);
+        $updateStmt->execute($sqlParams);
+
+        AuditService::log($admin['id'], 'UPDATE_USER', 'user', $id, [
+            'email' => $user['email'],
+            'role' => $role,
+            'office_or_course' => $departmentOrCourse
+        ]);
+
+        Response::json(null, 200, 'User account updated successfully.');
+    }
 }

@@ -192,9 +192,7 @@ sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
 | Role | Email | Student ID | Password | Access Level |
 | :--- | :--- | :--- | :--- | :--- |
 | **Administrator** | `admin@srcb.edu.ph` | N/A | `password123` | Full system governance, services CRUD, schedule configuration, user provisioning, audit & email logs |
-| **Staff Personnel** | `staff@srcb.edu.ph` | N/A | `password123` | Appointment approvals/declines/rescheduling, Queue counter calling & servicing |
-| **Student (Demo 1)** | `student1@srcb.edu.ph` | `2026-0001` | `password123` | Appointment booking, queue ticket issuance, live position monitoring |
-| **Student (Demo 2)** | `student2@srcb.edu.ph` | `2026-0002` | `password123` | Appointment booking, queue ticket issuance |
+| **Student** | `student1@srcb.edu.ph` | `2026-0001` | `password123` | Appointment booking, queue ticket issuance, live position monitoring |
 
 ---
 

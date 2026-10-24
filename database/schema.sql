@@ -210,8 +210,7 @@ CREATE TABLE `audit_logs` (
 INSERT INTO `users` (`id`, `student_id_number`, `first_name`, `last_name`, `email`, `password_hash`, `role`, `contact_number`, `department_or_course`, `year_level`, `is_active`) VALUES
 (1, NULL, 'System', 'Administrator', 'admin@srcb.edu.ph', '$2y$10$Sdexpc.rHmE51ul4Ip9d7OxmwIB43nY0EitAcT.BnnxJAWg3T8SDO', 'admin', '09123456789', 'Information Technology Office', NULL, 1),
 (2, NULL, 'Maria', 'Santos', 'staff@srcb.edu.ph', '$2y$10$Sdexpc.rHmE51ul4Ip9d7OxmwIB43nY0EitAcT.BnnxJAWg3T8SDO', 'staff', '09234567890', 'Registrar Office', NULL, 1),
-(3, '2026-0001', 'Juan', 'Dela Cruz', 'student1@srcb.edu.ph', '$2y$10$Sdexpc.rHmE51ul4Ip9d7OxmwIB43nY0EitAcT.BnnxJAWg3T8SDO', 'student', '09345678901', 'BS Information Technology', '3rd Year', 1),
-(4, '2026-0002', 'Ana', 'Reyes', 'student2@srcb.edu.ph', '$2y$10$Sdexpc.rHmE51ul4Ip9d7OxmwIB43nY0EitAcT.BnnxJAWg3T8SDO', 'student', '09456789012', 'BS Business Administration', '2nd Year', 1);
+(3, '2026-0001', 'Juan', 'Dela Cruz', 'student1@srcb.edu.ph', '$2y$10$Sdexpc.rHmE51ul4Ip9d7OxmwIB43nY0EitAcT.BnnxJAWg3T8SDO', 'student', '09345678901', 'BS Information Technology', '3rd Year', 1);
 
 -- 2. Default Services
 INSERT INTO `services` (`id`, `name`, `code`, `description`, `category`, `service_type`, `location_or_counter`, `estimated_duration_mins`, `max_daily_capacity`, `requirements`, `is_active`) VALUES

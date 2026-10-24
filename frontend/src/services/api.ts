@@ -281,6 +281,13 @@ class ApiService {
     });
   }
 
+  async updateUser(userId: number, userData: any) {
+    return this.request(`/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+  }
+
   async toggleUserActive(userId: number, isActive: boolean) {
     return this.request(`/users/${userId}/toggle`, {
       method: 'PUT',
