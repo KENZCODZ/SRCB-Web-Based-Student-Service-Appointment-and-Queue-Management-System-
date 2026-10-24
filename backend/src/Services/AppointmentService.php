@@ -108,9 +108,26 @@ class AppointmentService {
         if ($currentUser && $currentUser['role'] === 'student') {
             $sql .= " AND a.user_id = :current_user_id";
             $params['current_user_id'] = $currentUser['id'];
+        } elseif ($currentUser && $currentUser['role'] === 'staff') {
+            $staffCategory = ServiceManager::getCategoryForOffice($currentUser['department_or_course'] ?? '');
+            if ($staffCategory) {
+                $sql .= " AND (s.category = :staff_cat OR s.category LIKE :staff_cat_like)";
+                $params['staff_cat'] = $staffCategory;
+                $params['staff_cat_like'] = "%{$staffCategory}%";
+            }
         } elseif (!empty($filters['user_id'])) {
             $sql .= " AND a.user_id = :user_id";
             $params['user_id'] = (int)$filters['user_id'];
+        }
+
+        // Support explicit office / category filter
+        if (!empty($filters['category']) || !empty($filters['office'])) {
+            $filterCat = ServiceManager::getCategoryForOffice($filters['category'] ?? $filters['office']);
+            if ($filterCat) {
+                $sql .= " AND (s.category = :target_cat OR s.category LIKE :target_cat_like)";
+                $params['target_cat'] = $filterCat;
+                $params['target_cat_like'] = "%{$filterCat}%";
+            }
         }
 
         if (!empty($filters['status'])) {
@@ -166,6 +183,13 @@ class AppointmentService {
             Response::error('Unauthorized access to this appointment.', 403);
         }
 
+        // Staff access restriction
+        if ($currentUser && $currentUser['role'] === 'staff') {
+            if (!ServiceManager::officeMatchesCategory($currentUser['department_or_course'] ?? '', $appointment['service_category'] ?? '')) {
+                Response::error("Unauthorized access. This appointment belongs to {$appointment['service_category']}, outside your designated office ({$currentUser['department_or_course']}).", 403);
+            }
+        }
+
         return $appointment;
     }
 
@@ -181,6 +205,17 @@ class AppointmentService {
         }
 
         $db = Database::getConnection();
+
+        if ($staffUserId) {
+            $userStmt = $db->prepare("SELECT role, department_or_course FROM users WHERE id = :id");
+            $userStmt->execute(['id' => $staffUserId]);
+            $staffUser = $userStmt->fetch(PDO::FETCH_ASSOC);
+            if ($staffUser && $staffUser['role'] === 'staff') {
+                if (!ServiceManager::officeMatchesCategory($staffUser['department_or_course'] ?? '', $appointment['service_category'] ?? '')) {
+                    Response::error("Access denied. You cannot process appointments outside your designated office ({$staffUser['department_or_course']}).", 403);
+                }
+            }
+        }
 
         $adminNotes = trim($data['admin_notes'] ?? $appointment['admin_notes'] ?? '');
         $rejectionReason = trim($data['rejection_reason'] ?? $appointment['rejection_reason'] ?? '');

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { Appointment } from '../../types';
 import { Badge } from '../../components/common/Badge';
@@ -30,12 +31,14 @@ import {
 } from 'lucide-react';
 
 export const AppointmentManagement: React.FC = () => {
+  const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || '');
   const [dateFilter, setDateFilter] = useState(searchParams.get('date') || '');
+  const [officeFilter, setOfficeFilter] = useState('');
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
 
   const handleCopy = (text: string, label: string) => {
@@ -74,6 +77,7 @@ export const AppointmentManagement: React.FC = () => {
         status: statusFilter || undefined,
         date: dateFilter || undefined,
         search: search || undefined,
+        office: officeFilter || undefined,
       });
       setAppointments(res.data || []);
     } catch (e) {
@@ -85,7 +89,7 @@ export const AppointmentManagement: React.FC = () => {
 
   useEffect(() => {
     loadAppointments();
-  }, [statusFilter, dateFilter]);
+  }, [statusFilter, dateFilter, officeFilter]);
 
   // Auto-dismiss success toast after 6 seconds (Heuristic 1: Visibility of System Status)
   useEffect(() => {
@@ -298,11 +302,21 @@ export const AppointmentManagement: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
-            Appointment Processing & Review
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
+              Appointment Processing & Review
+            </h1>
+            {user?.role === 'staff' && user.department_or_course && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                <Building className="w-3.5 h-3.5 text-blue-600" />
+                <span>{user.department_or_course}</span>
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500 mt-0.5">
-            Review student booking requests with complete dossier verification, approve with automated confirmation, or reschedule slots.
+            {user?.role === 'staff'
+              ? `Review student booking requests for ${user.department_or_course || 'your office'}.`
+              : 'Review student booking requests with complete dossier verification, approve with automated confirmation, or reschedule slots.'}
           </p>
         </div>
 
@@ -441,6 +455,26 @@ export const AppointmentManagement: React.FC = () => {
             className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none"
             title="Filter by specific date"
           />
+
+          {/* Admin Office Filter */}
+          {user?.role === 'admin' && (
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
+              <Building className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                value={officeFilter}
+                onChange={(e) => setOfficeFilter(e.target.value)}
+                className="bg-transparent font-bold text-slate-700 focus:outline-none cursor-pointer"
+              >
+                <option value="">All Campus Offices</option>
+                <option value="Registrar">Registrar Office</option>
+                <option value="Finance">Finance / Cashier</option>
+                <option value="IT Department">IT Department</option>
+                <option value="Guidance">Guidance Office</option>
+                <option value="Dean Office">Dean Office</option>
+                <option value="Library">Library</option>
+              </select>
+            </div>
+          )}
 
           {(statusFilter || dateFilter || search) && (
             <button

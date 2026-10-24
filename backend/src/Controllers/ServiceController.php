@@ -10,8 +10,13 @@ class ServiceController {
         $type = $request->getQuery('type');
         $category = $request->getQuery('category');
         $onlyActive = $request->getQuery('all') !== 'true'; // Default active only for public/students
+        $scope = $request->getQuery('scope');
+        $user = $request->getUser();
 
-        $services = ServiceManager::getAllServices($onlyActive, $type, $category);
+        // If staff requests services without scope=all, scope to their office
+        $currentUser = ($scope === 'all') ? null : $user;
+
+        $services = ServiceManager::getAllServices($onlyActive, $type, $category, $currentUser);
         Response::json($services, 200, 'Services retrieved successfully.');
     }
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { Service, QueueEntry } from '../../types';
 import { Badge } from '../../components/common/Badge';
@@ -18,12 +19,15 @@ import {
   RefreshCw,
   Copy,
   Check,
-  X
+  X,
+  Filter
 } from 'lucide-react';
 
 export const QueueManagement: React.FC = () => {
+  const { user } = useAuth();
   const [queueServices, setQueueServices] = useState<Service[]>([]);
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
+  const [adminOfficeFilter, setAdminOfficeFilter] = useState('all');
   const [counterNumber, setCounterNumber] = useState('Window Counter 1');
   const [tickets, setTickets] = useState<QueueEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,22 +54,34 @@ export const QueueManagement: React.FC = () => {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  // 1. Load available queue services
-  useEffect(() => {
-    const fetchServices = async () => {
-      try {
-        const res = await api.getServices({ type: 'queue', all: false });
-        const svcs = res.data || [];
-        setQueueServices(svcs);
-        if (svcs.length > 0 && !selectedServiceId) {
+  // 1. Load available queue services (scoped to staff office, or filterable by admin)
+  const fetchServices = async () => {
+    try {
+      const params: any = { type: 'queue', all: false };
+      if (user?.role === 'admin') {
+        params.scope = 'all';
+        if (adminOfficeFilter !== 'all') {
+          params.category = adminOfficeFilter;
+        }
+      }
+      const res = await api.getServices(params);
+      const svcs = res.data || [];
+      setQueueServices(svcs);
+      if (svcs.length > 0) {
+        if (!selectedServiceId || !svcs.some((s: Service) => s.id === selectedServiceId)) {
           setSelectedServiceId(svcs[0].id);
         }
-      } catch (e) {
-        console.error(e);
+      } else {
+        setSelectedServiceId(null);
       }
-    };
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
     fetchServices();
-  }, []);
+  }, [adminOfficeFilter, user?.department_or_course]);
 
   // 2. Load tickets for currently selected service
   const loadQueueTickets = async () => {
@@ -133,15 +149,25 @@ export const QueueManagement: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
-            <span>Queue Counter Terminal</span>
-            <span className="flex h-2.5 w-2.5 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2.5">
+              <span>Queue Counter Terminal</span>
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+            </h1>
+            {user?.role === 'staff' && user.department_or_course && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>{user.department_or_course}</span>
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-500 mt-0.5">
-            Manage live walk-in queues, call waiting students, and track service counter throughput.
+            {user?.role === 'staff' 
+              ? `Manage live walk-in tickets for ${user.department_or_course || 'your office'}.`
+              : 'Manage live walk-in queues across college offices and call waiting students.'}
           </p>
         </div>
 
@@ -160,6 +186,29 @@ export const QueueManagement: React.FC = () => {
         </div>
       </div>
 
+      {/* Admin Office View Filter (Admins only) */}
+      {user?.role === 'admin' && (
+        <div className="flex items-center gap-2 overflow-x-auto py-1 bg-slate-50 p-2.5 rounded-2xl border border-slate-200/80">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mr-1">
+            <Filter className="w-3.5 h-3.5 text-brand-600" />
+            <span>Office Filter:</span>
+          </span>
+          {['all', 'Registrar', 'Finance', 'IT Department', 'Library', 'Guidance'].map((off) => (
+            <button
+              key={off}
+              onClick={() => setAdminOfficeFilter(off)}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition whitespace-nowrap border ${
+                adminOfficeFilter === off
+                  ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {off === 'all' ? 'All Campus Offices' : `${off} Office`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Toast Feedback Banner (Heuristic 1: Visibility of System Status) */}
       {toastMessage && (
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs flex items-center justify-between shadow-xs animate-in fade-in">
@@ -176,27 +225,42 @@ export const QueueManagement: React.FC = () => {
         </div>
       )}
 
-      {/* Service Selector Tabs */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
-        {queueServices.map((svc) => (
-          <button
-            key={svc.id}
-            onClick={() => setSelectedServiceId(svc.id)}
-            className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition border ${
-              selectedServiceId === svc.id
-                ? 'bg-slate-900 text-white border-slate-900 shadow-md'
-                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <span>{svc.name}</span>
-            <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-slate-100/20 font-mono">
-              {svc.code}
-            </span>
-          </button>
-        ))}
-      </div>
+      {/* Service Selector Tabs or Empty Notice */}
+      {queueServices.length === 0 ? (
+        <div className="bg-white rounded-3xl p-10 border border-slate-200 text-center shadow-xs">
+          <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+          <h3 className="text-base font-bold text-slate-800">
+            No active queue services found
+          </h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            {user?.role === 'staff'
+              ? `There are no active walk-in queue services configured for ${user.department_or_course}. Contact your system administrator to assign services to your office.`
+              : `No queue services match the selected office filter (${adminOfficeFilter}).`}
+          </p>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          {queueServices.map((svc) => (
+            <button
+              key={svc.id}
+              onClick={() => setSelectedServiceId(svc.id)}
+              className={`px-4 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition border ${
+                selectedServiceId === svc.id
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-md'
+                  : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              <span>{svc.name}</span>
+              <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] bg-slate-100/20 font-mono">
+                {svc.code}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Main Terminal View Grid */}
+      {queueServices.length > 0 && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column: Active Call Desk & Controls */}
         <div className="lg:col-span-1 space-y-4">
@@ -394,6 +458,7 @@ export const QueueManagement: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* CONFIRM SKIP NO-SHOW MODAL (Heuristic 5: Error Prevention & Heuristic 6: Recognition) */}
       <Modal

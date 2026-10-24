@@ -6,13 +6,96 @@ use App\Core\Response;
 use PDO;
 
 class ServiceManager {
-    public static function getAllServices(bool $onlyActive = false, ?string $type = null, ?string $category = null): array {
+    /**
+     * Map a designated user office string to the canonical service category.
+     */
+    public static function getCategoryForOffice(?string $office): ?string {
+        if (!$office) return null;
+        $o = strtolower(trim($office));
+        if ($o === 'all offices / system administration' || $o === 'all') {
+            return null;
+        }
+        if (strpos($o, 'finance') !== false || strpos($o, 'cashier') !== false) {
+            return 'Finance';
+        }
+        if (strpos($o, 'registrar') !== false) {
+            return 'Registrar';
+        }
+        if (strpos($o, 'information technology') !== false || strpos($o, 'it') !== false) {
+            return 'IT Department';
+        }
+        if (strpos($o, 'guidance') !== false) {
+            return 'Guidance';
+        }
+        if (strpos($o, 'dean') !== false) {
+            return 'Dean Office';
+        }
+        if (strpos($o, 'library') !== false) {
+            return 'Library';
+        }
+        return $office;
+    }
+
+    /**
+     * Verify whether a user's designated office matches a service's category.
+     */
+    public static function officeMatchesCategory(?string $userOffice, ?string $serviceCategory): bool {
+        if (!$userOffice || !$serviceCategory) return false;
+        $uo = strtolower(trim($userOffice));
+        $sc = strtolower(trim($serviceCategory));
+
+        if ($uo === 'all offices / system administration' || $uo === 'all') {
+            return true;
+        }
+
+        if (strpos($uo, $sc) !== false || strpos($sc, $uo) !== false) {
+            return true;
+        }
+
+        if ((strpos($uo, 'finance') !== false || strpos($uo, 'cashier') !== false) &&
+            (strpos($sc, 'finance') !== false || strpos($sc, 'cashier') !== false)) {
+            return true;
+        }
+
+        if ((strpos($uo, 'it') !== false || strpos($uo, 'information technology') !== false) &&
+            (strpos($sc, 'it') !== false || strpos($sc, 'information technology') !== false)) {
+            return true;
+        }
+
+        if (strpos($uo, 'registrar') !== false && strpos($sc, 'registrar') !== false) {
+            return true;
+        }
+
+        if (strpos($uo, 'guidance') !== false && strpos($sc, 'guidance') !== false) {
+            return true;
+        }
+
+        if (strpos($uo, 'dean') !== false && strpos($sc, 'dean') !== false) {
+            return true;
+        }
+
+        if (strpos($uo, 'library') !== false && strpos($sc, 'library') !== false) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function getAllServices(bool $onlyActive = false, ?string $type = null, ?string $category = null, ?array $currentUser = null): array {
         $db = Database::getConnection();
         $sql = "SELECT s.*, 
                     (SELECT COUNT(*) FROM service_schedules ss WHERE ss.service_id = s.id AND ss.is_active = 1) AS active_schedules_count
                 FROM services s 
                 WHERE 1=1";
         $params = [];
+
+        // If logged-in user is staff, scope to their designated office
+        if ($currentUser && ($currentUser['role'] ?? '') === 'staff') {
+            $staffCategory = self::getCategoryForOffice($currentUser['department_or_course'] ?? '');
+            if ($staffCategory) {
+                $category = $staffCategory;
+            }
+        }
 
         if ($onlyActive) {
             $sql .= " AND s.is_active = 1";
@@ -22,8 +105,9 @@ class ServiceManager {
             $params['type'] = $type;
         }
         if ($category) {
-            $sql .= " AND s.category = :category";
+            $sql .= " AND (s.category = :category OR s.category LIKE :category_like)";
             $params['category'] = $category;
+            $params['category_like'] = "%{$category}%";
         }
 
         $sql .= " ORDER BY s.category ASC, s.name ASC";

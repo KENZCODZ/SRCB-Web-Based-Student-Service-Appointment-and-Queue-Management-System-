@@ -103,41 +103,80 @@ class DashboardController {
         // ADMIN & STAFF OPERATIONS COMMAND CENTER (LIVE REAL-TIME DATA)
         // =====================================================================
 
+        // Determine Office Scoping
+        $targetOfficeCategory = null;
+        $scopedOfficeName = 'All Campus Offices';
+
+        if ($user['role'] === 'staff') {
+            $targetOfficeCategory = \App\Services\ServiceManager::getCategoryForOffice($user['department_or_course'] ?? '');
+            $scopedOfficeName = $user['department_or_course'] ?? 'Designated Office';
+        } else {
+            // Admin can pass ?office=Registrar or ?office=Finance
+            $officeParam = $request->getQuery('office');
+            if ($officeParam && $officeParam !== 'all') {
+                $targetOfficeCategory = \App\Services\ServiceManager::getCategoryForOffice($officeParam);
+                $scopedOfficeName = $officeParam;
+            }
+        }
+
+        $officeParams = [];
+        $aptOfficeFilter = '';
+        $queueOfficeFilter = '';
+        $svcOfficeFilter = '';
+
+        if ($targetOfficeCategory) {
+            $officeParams = [
+                'target_cat'      => $targetOfficeCategory,
+                'target_cat_like' => "%{$targetOfficeCategory}%"
+            ];
+            $aptOfficeFilter = " AND (s.category = :target_cat OR s.category LIKE :target_cat_like)";
+            $queueOfficeFilter = " AND (s.category = :target_cat OR s.category LIKE :target_cat_like)";
+            $svcOfficeFilter = " AND (category = :target_cat OR category LIKE :target_cat_like)";
+        }
+
         // 1. Core Appointment Aggregate Metrics
-        $aptStatsStmt = $db->prepare("
+        $aptSql = "
             SELECT 
-                COUNT(CASE WHEN status = 'pending' THEN 1 END) as total_pending_appointments,
-                COUNT(CASE WHEN status IN ('approved', 'rescheduled') AND appointment_date = :today THEN 1 END) as today_approved_appointments,
-                COUNT(CASE WHEN appointment_date = :today THEN 1 END) as today_total_appointments,
-                COUNT(CASE WHEN status = 'completed' AND appointment_date = :today THEN 1 END) as today_completed_appointments
-            FROM appointments
-        ");
-        $aptStatsStmt->execute(['today' => $today]);
+                COUNT(CASE WHEN a.status = 'pending' THEN 1 END) as total_pending_appointments,
+                COUNT(CASE WHEN a.status IN ('approved', 'rescheduled') AND a.appointment_date = :today THEN 1 END) as today_approved_appointments,
+                COUNT(CASE WHEN a.appointment_date = :today THEN 1 END) as today_total_appointments,
+                COUNT(CASE WHEN a.status = 'completed' AND a.appointment_date = :today THEN 1 END) as today_completed_appointments
+            FROM appointments a
+            JOIN services s ON a.service_id = s.id
+            WHERE 1=1 {$aptOfficeFilter}
+        ";
+        $aptStatsStmt = $db->prepare($aptSql);
+        $aptStatsStmt->execute(array_merge(['today' => $today], $officeParams));
         $aptStats = $aptStatsStmt->fetch(PDO::FETCH_ASSOC);
 
         // 2. Core Queue Aggregate Metrics
-        $queueStatsStmt = $db->prepare("
+        $queueSql = "
             SELECT 
-                COUNT(CASE WHEN status = 'waiting' THEN 1 END) as currently_waiting,
-                COUNT(CASE WHEN status = 'calling' THEN 1 END) as currently_calling,
-                COUNT(CASE WHEN status = 'serving' THEN 1 END) as currently_serving,
-                COUNT(CASE WHEN status = 'completed' THEN 1 END) as today_completed,
-                COUNT(CASE WHEN status = 'skipped' THEN 1 END) as today_skipped,
+                COUNT(CASE WHEN q.status = 'waiting' THEN 1 END) as currently_waiting,
+                COUNT(CASE WHEN q.status = 'calling' THEN 1 END) as currently_calling,
+                COUNT(CASE WHEN q.status = 'serving' THEN 1 END) as currently_serving,
+                COUNT(CASE WHEN q.status = 'completed' THEN 1 END) as today_completed,
+                COUNT(CASE WHEN q.status = 'skipped' THEN 1 END) as today_skipped,
                 COUNT(*) as total_today_tickets
-            FROM queue_entries
-            WHERE queue_date = :today
-        ");
-        $queueStatsStmt->execute(['today' => $today]);
+            FROM queue_entries q
+            JOIN services s ON q.service_id = s.id
+            WHERE q.queue_date = :today {$queueOfficeFilter}
+        ";
+        $queueStatsStmt = $db->prepare($queueSql);
+        $queueStatsStmt->execute(array_merge(['today' => $today], $officeParams));
         $queueStats = $queueStatsStmt->fetch(PDO::FETCH_ASSOC);
 
         // 3. Services and User Counts
-        $servicesCountStmt = $db->query("
+        $svcSql = "
             SELECT 
                 COUNT(*) as total_services,
                 COUNT(CASE WHEN service_type = 'appointment' AND is_active = 1 THEN 1 END) as active_appointment_services,
                 COUNT(CASE WHEN service_type = 'queue' AND is_active = 1 THEN 1 END) as active_queue_services
             FROM services
-        ");
+            WHERE 1=1 {$svcOfficeFilter}
+        ";
+        $servicesCountStmt = $db->prepare($svcSql);
+        $servicesCountStmt->execute($officeParams);
         $servicesStats = $servicesCountStmt->fetch(PDO::FETCH_ASSOC);
 
         $usersCountStmt = $db->query("
@@ -149,7 +188,7 @@ class DashboardController {
         $userStats = $usersCountStmt->fetch(PDO::FETCH_ASSOC);
 
         // 4. Live Active Queue Tickets Today (waiting, calling, serving)
-        $liveQueuesStmt = $db->prepare("
+        $liveQueuesSql = "
             SELECT q.*, 
                    u.student_id_number, u.first_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter, s.estimated_duration_mins,
@@ -158,7 +197,7 @@ class DashboardController {
             JOIN users u ON q.user_id = u.id
             JOIN services s ON q.service_id = s.id
             LEFT JOIN users c ON q.called_by = c.id
-            WHERE q.queue_date = :today AND q.status IN ('calling', 'serving', 'waiting')
+            WHERE q.queue_date = :today AND q.status IN ('calling', 'serving', 'waiting') {$queueOfficeFilter}
             ORDER BY 
               CASE q.status 
                 WHEN 'calling' THEN 1 
@@ -167,20 +206,21 @@ class DashboardController {
                 ELSE 4 
               END ASC,
               q.sequence_number ASC
-            LIMIT 15
-        ");
-        $liveQueuesStmt->execute(['today' => $today]);
+            LIMIT 20
+        ";
+        $liveQueuesStmt = $db->prepare($liveQueuesSql);
+        $liveQueuesStmt->execute(array_merge(['today' => $today], $officeParams));
         $liveQueues = $liveQueuesStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 5. Today's Appointments and Pending Action List
-        $todayAptsStmt = $db->prepare("
+        $todayAptsSql = "
             SELECT a.*, 
                    u.student_id_number, u.first_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter
             FROM appointments a
             JOIN users u ON a.user_id = u.id
             JOIN services s ON a.service_id = s.id
-            WHERE a.appointment_date = :today OR a.status = 'pending'
+            WHERE (a.appointment_date = :today OR a.status = 'pending') {$aptOfficeFilter}
             ORDER BY 
               CASE a.status 
                 WHEN 'pending' THEN 1 
@@ -190,13 +230,14 @@ class DashboardController {
               END ASC,
               a.appointment_date ASC, 
               a.start_time ASC
-            LIMIT 12
-        ");
-        $todayAptsStmt->execute(['today' => $today]);
+            LIMIT 15
+        ";
+        $todayAptsStmt = $db->prepare($todayAptsSql);
+        $todayAptsStmt->execute(array_merge(['today' => $today], $officeParams));
         $todayAppointments = $todayAptsStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 6. Live Service / Counter Summaries
-        $counterSummariesStmt = $db->query("
+        $counterSummariesSql = "
             SELECT 
                 s.id as service_id,
                 s.name as service_name,
@@ -227,25 +268,28 @@ class DashboardController {
                 ) as counter_number
             FROM services s
             LEFT JOIN queue_entries q ON s.id = q.service_id AND q.queue_date = CURDATE()
-            WHERE s.service_type = 'queue' AND s.is_active = 1
+            WHERE s.service_type = 'queue' AND s.is_active = 1 {$aptOfficeFilter}
             GROUP BY s.id
             ORDER BY s.category ASC, s.name ASC
-        ");
+        ";
+        $counterSummariesStmt = $db->prepare($counterSummariesSql);
+        $counterSummariesStmt->execute($officeParams);
         $counterSummaries = $counterSummariesStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 7. Recent Transactions Completed Today
-        $recentCompletedStmt = $db->prepare("
+        $recentCompletedSql = "
             SELECT q.*, 
                    u.student_id_number, u.first_name, u.last_name,
                    s.name as service_name, s.code as service_code, s.location_or_counter
             FROM queue_entries q
             JOIN users u ON q.user_id = u.id
             JOIN services s ON q.service_id = s.id
-            WHERE q.queue_date = :today AND q.status = 'completed'
+            WHERE q.queue_date = :today AND q.status = 'completed' {$queueOfficeFilter}
             ORDER BY q.completed_at DESC, q.id DESC
             LIMIT 5
-        ");
-        $recentCompletedStmt->execute(['today' => $today]);
+        ";
+        $recentCompletedStmt = $db->prepare($recentCompletedSql);
+        $recentCompletedStmt->execute(array_merge(['today' => $today], $officeParams));
         $recentCompleted = $recentCompletedStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 8. 7-Day Operational Volume Breakdown Chart
@@ -254,12 +298,22 @@ class DashboardController {
             $d = date('Y-m-d', strtotime("-{$i} days"));
             $dayName = date('D (m/d)', strtotime($d));
 
-            $dStmt1 = $db->prepare("SELECT COUNT(*) FROM appointments WHERE appointment_date = :d");
-            $dStmt1->execute(['d' => $d]);
+            $dStmt1 = $db->prepare("
+                SELECT COUNT(*) 
+                FROM appointments a 
+                JOIN services s ON a.service_id = s.id 
+                WHERE a.appointment_date = :d {$aptOfficeFilter}
+            ");
+            $dStmt1->execute(array_merge(['d' => $d], $officeParams));
             $aptCount = (int)$dStmt1->fetchColumn();
 
-            $dStmt2 = $db->prepare("SELECT COUNT(*) FROM queue_entries WHERE queue_date = :d");
-            $dStmt2->execute(['d' => $d]);
+            $dStmt2 = $db->prepare("
+                SELECT COUNT(*) 
+                FROM queue_entries q 
+                JOIN services s ON q.service_id = s.id 
+                WHERE q.queue_date = :d {$queueOfficeFilter}
+            ");
+            $dStmt2->execute(array_merge(['d' => $d], $officeParams));
             $qCount = (int)$dStmt2->fetchColumn();
 
             $trends[] = [
@@ -271,6 +325,8 @@ class DashboardController {
         }
 
         Response::json([
+            'scoped_office'          => $scopedOfficeName,
+            'is_scoped'              => !empty($targetOfficeCategory),
             'appointments'           => $aptStats,
             'queues'                 => $queueStats,
             'services'               => $servicesStats,
@@ -281,6 +337,6 @@ class DashboardController {
             'counter_summaries'      => $counterSummaries,
             'recent_completed_today' => $recentCompleted,
             'server_time'            => date('Y-m-d H:i:s'),
-        ], 200, 'Admin live operational metrics loaded.');
+        ], 200, 'Operations live operational metrics loaded.');
     }
 }

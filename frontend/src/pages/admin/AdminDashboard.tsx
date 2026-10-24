@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { api } from '../../services/api';
 import { DashboardStats } from '../../types';
 import { Link } from 'react-router-dom';
@@ -17,11 +18,14 @@ import {
   Building2,
   User,
   Sparkles,
-  PhoneCall
+  PhoneCall,
+  Filter
 } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [adminOfficeFilter, setAdminOfficeFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
@@ -29,7 +33,9 @@ export const AdminDashboard: React.FC = () => {
   const loadStats = async (isManual = false) => {
     if (isManual) setRefreshing(true);
     try {
-      const res = await api.getDashboardStats();
+      const res = await api.getDashboardStats({
+        office: user?.role === 'admin' && adminOfficeFilter !== 'all' ? adminOfficeFilter : undefined
+      });
       setStats(res.data);
       setLastUpdated(new Date());
     } catch (e) {
@@ -47,24 +53,32 @@ export const AdminDashboard: React.FC = () => {
       loadStats(false);
     }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [adminOfficeFilter]);
 
   return (
     <div className="space-y-6">
       {/* Header with Live Status & Controls */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
               Operations Command Center
             </h1>
+            {user?.role === 'staff' && user.department_or_course && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                <span>{user.department_or_course}</span>
+              </span>
+            )}
             <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/70">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
               <span>Live Updates</span>
             </span>
           </div>
           <p className="text-sm text-slate-500 mt-1">
-            Real-time monitoring of campus service appointments, walk-in queues, and counter flow.
+            {user?.role === 'staff'
+              ? `Real-time monitoring of ${user.department_or_course || 'your office'} service appointments, walk-in queues, and counter throughput.`
+              : 'Real-time monitoring of campus service appointments, walk-in queues, and counter flow.'}
           </p>
         </div>
 
@@ -100,6 +114,29 @@ export const AdminDashboard: React.FC = () => {
           </Link>
         </div>
       </div>
+
+      {/* Admin Office Filter Pill Bar */}
+      {user?.role === 'admin' && (
+        <div className="flex items-center gap-2 overflow-x-auto py-1 bg-white p-3 rounded-2xl border border-slate-200/80 shadow-xs">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 mr-1 whitespace-nowrap">
+            <Building2 className="w-3.5 h-3.5 text-brand-600" />
+            <span>Office Filter:</span>
+          </span>
+          {['all', 'Registrar', 'Finance', 'IT Department', 'Guidance', 'Dean Office', 'Library'].map((off) => (
+            <button
+              key={off}
+              onClick={() => setAdminOfficeFilter(off)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap border ${
+                adminOfficeFilter === off
+                  ? 'bg-brand-600 text-white border-brand-600 shadow-xs'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              {off === 'all' ? 'All Campus Offices' : `${off} Office`}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

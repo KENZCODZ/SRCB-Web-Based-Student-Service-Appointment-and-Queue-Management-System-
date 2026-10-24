@@ -119,11 +119,12 @@ class ApiService {
   // -------------------------------------------------------------
   // SERVICES
   // -------------------------------------------------------------
-  async getServices(params?: { type?: string; category?: string; all?: boolean }) {
+  async getServices(params?: { type?: string; category?: string; all?: boolean; scope?: string }) {
     const searchParams = new URLSearchParams();
     if (params?.type) searchParams.append('type', params.type);
     if (params?.category) searchParams.append('category', params.category);
     if (params?.all) searchParams.append('all', 'true');
+    if (params?.scope) searchParams.append('scope', params.scope);
     const qs = searchParams.toString();
     return this.request(`/services${qs ? `?${qs}` : ''}`);
   }
@@ -164,12 +165,14 @@ class ApiService {
   // -------------------------------------------------------------
   // APPOINTMENTS
   // -------------------------------------------------------------
-  async getAppointments(filters?: { status?: string; service_id?: number; date?: string; search?: string }) {
+  async getAppointments(filters?: { status?: string; service_id?: number; date?: string; search?: string; office?: string; category?: string }) {
     const searchParams = new URLSearchParams();
     if (filters?.status) searchParams.append('status', filters.status);
     if (filters?.service_id) searchParams.append('service_id', filters.service_id.toString());
     if (filters?.date) searchParams.append('date', filters.date);
     if (filters?.search) searchParams.append('search', filters.search);
+    if (filters?.office) searchParams.append('office', filters.office);
+    if (filters?.category) searchParams.append('category', filters.category);
     const qs = searchParams.toString();
     return this.request(`/appointments${qs ? `?${qs}` : ''}`);
   }
@@ -244,8 +247,9 @@ class ApiService {
   // -------------------------------------------------------------
   // DASHBOARD & ANALYTICS
   // -------------------------------------------------------------
-  async getDashboardStats() {
-    return this.request('/dashboard/stats');
+  async getDashboardStats(params?: { office?: string }) {
+    const qs = params?.office ? `?office=${encodeURIComponent(params.office)}` : '';
+    return this.request(`/dashboard/stats${qs}`);
   }
 
   // -------------------------------------------------------------
