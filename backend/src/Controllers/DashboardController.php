@@ -138,15 +138,15 @@ class DashboardController {
         $aptSql = "
             SELECT 
                 COUNT(CASE WHEN a.status = 'pending' THEN 1 END) as total_pending_appointments,
-                COUNT(CASE WHEN a.status IN ('approved', 'rescheduled') AND a.appointment_date = :today THEN 1 END) as today_approved_appointments,
-                COUNT(CASE WHEN a.appointment_date = :today THEN 1 END) as today_total_appointments,
-                COUNT(CASE WHEN a.status = 'completed' AND a.appointment_date = :today THEN 1 END) as today_completed_appointments
+                COUNT(CASE WHEN a.status IN ('approved', 'rescheduled') AND a.appointment_date = CURDATE() THEN 1 END) as today_approved_appointments,
+                COUNT(CASE WHEN a.appointment_date = CURDATE() THEN 1 END) as today_total_appointments,
+                COUNT(CASE WHEN a.status = 'completed' AND a.appointment_date = CURDATE() THEN 1 END) as today_completed_appointments
             FROM appointments a
             JOIN services s ON a.service_id = s.id
             WHERE 1=1 {$aptOfficeFilter}
         ";
         $aptStatsStmt = $db->prepare($aptSql);
-        $aptStatsStmt->execute(array_merge(['today' => $today], $officeParams));
+        $aptStatsStmt->execute($officeParams);
         $aptStats = $aptStatsStmt->fetch(PDO::FETCH_ASSOC);
 
         // 2. Core Queue Aggregate Metrics
@@ -160,10 +160,10 @@ class DashboardController {
                 COUNT(*) as total_today_tickets
             FROM queue_entries q
             JOIN services s ON q.service_id = s.id
-            WHERE q.queue_date = :today {$queueOfficeFilter}
+            WHERE q.queue_date = CURDATE() {$queueOfficeFilter}
         ";
         $queueStatsStmt = $db->prepare($queueSql);
-        $queueStatsStmt->execute(array_merge(['today' => $today], $officeParams));
+        $queueStatsStmt->execute($officeParams);
         $queueStats = $queueStatsStmt->fetch(PDO::FETCH_ASSOC);
 
         // 3. Services and User Counts
@@ -197,7 +197,7 @@ class DashboardController {
             JOIN users u ON q.user_id = u.id
             JOIN services s ON q.service_id = s.id
             LEFT JOIN users c ON q.called_by = c.id
-            WHERE q.queue_date = :today AND q.status IN ('calling', 'serving', 'waiting') {$queueOfficeFilter}
+            WHERE q.queue_date = CURDATE() AND q.status IN ('calling', 'serving', 'waiting') {$queueOfficeFilter}
             ORDER BY 
               CASE q.status 
                 WHEN 'calling' THEN 1 
@@ -209,7 +209,7 @@ class DashboardController {
             LIMIT 20
         ";
         $liveQueuesStmt = $db->prepare($liveQueuesSql);
-        $liveQueuesStmt->execute(array_merge(['today' => $today], $officeParams));
+        $liveQueuesStmt->execute($officeParams);
         $liveQueues = $liveQueuesStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 5. Today's Appointments and Pending Action List
@@ -220,7 +220,7 @@ class DashboardController {
             FROM appointments a
             JOIN users u ON a.user_id = u.id
             JOIN services s ON a.service_id = s.id
-            WHERE (a.appointment_date = :today OR a.status = 'pending') {$aptOfficeFilter}
+            WHERE (a.appointment_date = CURDATE() OR a.status = 'pending') {$aptOfficeFilter}
             ORDER BY 
               CASE a.status 
                 WHEN 'pending' THEN 1 
@@ -233,7 +233,7 @@ class DashboardController {
             LIMIT 15
         ";
         $todayAptsStmt = $db->prepare($todayAptsSql);
-        $todayAptsStmt->execute(array_merge(['today' => $today], $officeParams));
+        $todayAptsStmt->execute($officeParams);
         $todayAppointments = $todayAptsStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 6. Live Service / Counter Summaries
@@ -284,12 +284,12 @@ class DashboardController {
             FROM queue_entries q
             JOIN users u ON q.user_id = u.id
             JOIN services s ON q.service_id = s.id
-            WHERE q.queue_date = :today AND q.status = 'completed' {$queueOfficeFilter}
+            WHERE q.queue_date = CURDATE() AND q.status = 'completed' {$queueOfficeFilter}
             ORDER BY q.completed_at DESC, q.id DESC
             LIMIT 5
         ";
         $recentCompletedStmt = $db->prepare($recentCompletedSql);
-        $recentCompletedStmt->execute(array_merge(['today' => $today], $officeParams));
+        $recentCompletedStmt->execute($officeParams);
         $recentCompleted = $recentCompletedStmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 8. 7-Day Operational Volume Breakdown Chart
