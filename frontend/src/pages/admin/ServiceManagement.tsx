@@ -19,7 +19,10 @@ import {
   Sliders,
   Check,
   Building2,
-  Sparkles
+  Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  Trash2
 } from 'lucide-react';
 
 const WEEK_DAYS = [
@@ -39,6 +42,12 @@ const getDefaultSchedules = (): ServiceSchedule[] => [
   { day_of_week: 4, start_time: '08:00:00', end_time: '17:00:00', slot_duration_mins: 30, max_students_per_slot: 3 },
   { day_of_week: 5, start_time: '08:00:00', end_time: '17:00:00', slot_duration_mins: 30, max_students_per_slot: 3 },
 ];
+
+const timeToSeconds = (timeStr: string) => {
+  if (!timeStr) return 0;
+  const parts = timeStr.split(':').map(Number);
+  return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+};
 
 export const ServiceManagement: React.FC = () => {
   const [services, setServices] = useState<Service[]>([]);
@@ -113,6 +122,24 @@ export const ServiceManagement: React.FC = () => {
   const [formLoading, setFormLoading] = useState(false);
   const [formError, setFormError] = useState('');
 
+  // Active Tab for Service Create / Edit Modal (Details vs Schedule)
+  const [activeModalTab, setActiveModalTab] = useState<'details' | 'schedule'>('details');
+
+  // Computed total weekly appointment slots and student capacity
+  const scheduleStats = useMemo(() => {
+    let totalSlots = 0;
+    let totalCapacity = 0;
+    schedules.forEach((s) => {
+      const startSec = timeToSeconds(s.start_time);
+      const endSec = timeToSeconds(s.end_time);
+      const durSec = (s.slot_duration_mins || 30) * 60;
+      const daySlots = durSec > 0 && endSec > startSec ? Math.floor((endSec - startSec) / durSec) : 0;
+      totalSlots += daySlots;
+      totalCapacity += daySlots * (s.max_students_per_slot || 3);
+    });
+    return { totalSlots, totalCapacity };
+  }, [schedules]);
+
   const loadServices = async () => {
     try {
       const res = await api.getServices({ all: true });
@@ -130,6 +157,7 @@ export const ServiceManagement: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingService(null);
+    setActiveModalTab('details');
     setIsCustomCategory(false);
     setCustomCategory('');
     setFormData({
@@ -154,6 +182,7 @@ export const ServiceManagement: React.FC = () => {
 
   const openEditModal = async (service: Service) => {
     setEditingService(service);
+    setActiveModalTab('details');
     const isCustom = !availableCategories.includes(service.category);
     setIsCustomCategory(isCustom);
     setCustomCategory(isCustom ? service.category : '');
@@ -271,12 +300,6 @@ export const ServiceManagement: React.FC = () => {
     );
   };
 
-  const timeToSeconds = (timeStr: string) => {
-    if (!timeStr) return 0;
-    const parts = timeStr.split(':').map(Number);
-    return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
-  };
-
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -285,12 +308,14 @@ export const ServiceManagement: React.FC = () => {
     if (isAppointmentOrBoth) {
       if (schedules.length === 0) {
         setFormError('Please activate at least one operating day for this appointment/hybrid service.');
+        setActiveModalTab('schedule');
         return;
       }
       for (const s of schedules) {
         if (s.start_time >= s.end_time) {
           const dName = WEEK_DAYS.find((d) => d.day === s.day_of_week)?.name || `Day ${s.day_of_week}`;
           setFormError(`End time must be later than start time on ${dName}.`);
+          setActiveModalTab('schedule');
           return;
         }
       }
@@ -532,512 +557,683 @@ export const ServiceManagement: React.FC = () => {
           setEditingService(null);
         }}
         title={editingService ? `Edit Service: ${editingService.name}` : 'Create New Student Service'}
-        maxWidth="3xl"
+        subtitle={
+          editingService
+            ? `Updating service #${editingService.id} (${editingService.code})`
+            : 'Configure basic details, campus office, and operating schedules'
+        }
+        icon={<Layers className="w-5 h-5 text-brand-600" />}
+        maxWidth="4xl"
+        noPadding
       >
-        <form onSubmit={handleSave} className="space-y-6">
-          {formError && (
-            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-center gap-2.5 shadow-2xs animate-in fade-in">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
-              <span className="font-semibold">{formError}</span>
-            </div>
-          )}
-
-          {/* Section 1: Basic Information */}
-          <div className="bg-slate-50/75 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
-              <Layers className="w-4 h-4 text-brand-600" />
-              <span>Basic Information</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Service Name <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g. Official Transcript of Records (TOR)"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Unique Code <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.code}
-                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                  placeholder="e.g. REG-TOR"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono uppercase bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Description / Student Guidelines
-              </label>
-              <textarea
-                rows={2}
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Briefly describe the purpose of this service, steps for the student, or special instructions..."
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-              />
-            </div>
-          </div>
-
-          {/* Section 2: Delivery Mode & Office */}
-          <div className="bg-slate-50/75 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
-              <Building2 className="w-4 h-4 text-brand-600" />
-              <span>Service Delivery & Office Assignment</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Service Type Option */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Service Type <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={formData.service_type}
-                  onChange={(e) => setFormData({ ...formData, service_type: e.target.value as ServiceType })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-                >
-                  <option value="appointment">Appointment-Based (Online Bookings)</option>
-                  <option value="queue">Queue-Based (Walk-In Tickets)</option>
-                  <option value="both">Both (Appointment & Walk-In Queue)</option>
-                </select>
-
-                <div className="mt-1.5 text-[11px] text-slate-500 flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${
-                    formData.service_type === 'both' ? 'bg-violet-500' : formData.service_type === 'queue' ? 'bg-teal-500' : 'bg-indigo-500'
-                  }`} />
-                  <span>
-                    {formData.service_type === 'both'
-                      ? 'Hybrid: Students can book advance time slots OR take same-day queue tickets.'
-                      : formData.service_type === 'queue'
-                      ? 'Walk-In: Students request digital live queue tickets for counter calling.'
-                      : 'Scheduled: Students reserve designated appointment date and time slots.'}
-                  </span>
+        <form onSubmit={handleSave} className="flex-1 flex flex-col min-h-0 h-full overflow-hidden">
+          {/* TAB BAR & FEEDBACK HEADER */}
+          <div className="px-6 pt-5 pb-3 bg-white border-b border-slate-100 flex-shrink-0">
+            {formError && (
+              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center justify-between gap-2.5 shadow-2xs animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+                  <span className="font-semibold">{formError}</span>
                 </div>
-              </div>
-
-              {/* Category / Department Dropdown (Not free text) */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Category / Department Office <span className="text-rose-500">*</span>
-                </label>
-                <select
-                  value={isCustomCategory ? '__custom__' : formData.category}
-                  onChange={(e) => {
-                    if (e.target.value === '__custom__') {
-                      setIsCustomCategory(true);
-                      setCustomCategory('');
-                    } else {
-                      setIsCustomCategory(false);
-                      setFormData({ ...formData, category: e.target.value });
-                    }
-                  }}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                <button
+                  type="button"
+                  onClick={() => setFormError('')}
+                  className="text-rose-400 hover:text-rose-700 p-0.5 rounded transition"
+                  title="Dismiss error"
                 >
-                  <optgroup label="Registered Campus Offices">
-                    {availableCategories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="New Department">
-                    <option value="__custom__">+ Register New Office / Department...</option>
-                  </optgroup>
-                </select>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
-                {isCustomCategory && (
-                  <div className="mt-2 animate-in fade-in">
-                    <input
-                      type="text"
-                      required
-                      value={customCategory}
-                      onChange={(e) => {
-                        setCustomCategory(e.target.value);
-                        setFormData({ ...formData, category: e.target.value });
-                      }}
-                      placeholder="Enter new office name (e.g. Clinic, Admissions)..."
-                      className="w-full px-4 py-2 rounded-xl border border-brand-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
-                      autoFocus
-                    />
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">
-                      This will register a new department category across the system.
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl border border-slate-200/70">
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('details')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                    activeModalTab === 'details'
+                      ? 'bg-white text-brand-700 shadow-2xs border border-slate-200/50'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Layers className="w-3.5 h-3.5 text-brand-600" />
+                  <span>1. Service Details & Office</span>
+                </button>
+
+                {(formData.service_type === 'appointment' || formData.service_type === 'both') && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveModalTab('schedule')}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-2 ${
+                      activeModalTab === 'schedule'
+                        ? 'bg-white text-brand-700 shadow-2xs border border-slate-200/50'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Calendar className="w-3.5 h-3.5 text-brand-600" />
+                    <span>2. Operating Schedule</span>
+                    <span
+                      className={`px-1.5 py-0.5 rounded-full text-[10px] font-extrabold ${
+                        schedules.length > 0
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {schedules.length} {schedules.length === 1 ? 'day' : 'days'}
                     </span>
-                  </div>
+                  </button>
                 )}
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Counter Desk / Room Location
-                </label>
-                <input
-                  type="text"
-                  value={formData.location_or_counter}
-                  onChange={(e) => setFormData({ ...formData, location_or_counter: e.target.value })}
-                  placeholder="e.g. Registrar Window 1"
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-                />
+              {/* Delivery Mode Badge */}
+              <div className="flex items-center gap-2 text-xs">
+                <span className="font-semibold text-slate-400 hidden sm:inline">Mode:</span>
+                <span
+                  className={`px-2.5 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1.5 ${
+                    formData.service_type === 'both'
+                      ? 'bg-violet-50 text-violet-800 border border-violet-200'
+                      : formData.service_type === 'queue'
+                      ? 'bg-teal-50 text-teal-800 border border-teal-200'
+                      : 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                  }`}
+                >
+                  <span
+                    className={`w-2 h-2 rounded-full ${
+                      formData.service_type === 'both'
+                        ? 'bg-violet-500'
+                        : formData.service_type === 'queue'
+                        ? 'bg-teal-500'
+                        : 'bg-indigo-500'
+                    }`}
+                  />
+                  <span>
+                    {formData.service_type === 'both'
+                      ? 'Hybrid (Appointment & Queue)'
+                      : formData.service_type === 'queue'
+                      ? 'Walk-In Queue Only'
+                      : 'Appointment-Based Only'}
+                  </span>
+                </span>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Est. Duration (Mins)
-                </label>
-                <input
-                  type="number"
-                  min="5"
-                  max="180"
-                  value={formData.estimated_duration_mins}
-                  onChange={(e) =>
-                    setFormData({ ...formData, estimated_duration_mins: parseInt(e.target.value) || 15 })
-                  }
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                  Max Daily Capacity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="1000"
-                  value={formData.max_daily_capacity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, max_daily_capacity: parseInt(e.target.value) || 50 })
-                  }
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Required Documents / Prerequisites
-              </label>
-              <input
-                type="text"
-                value={formData.requirements}
-                onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-                placeholder="e.g. Valid Student ID, Clearance Form, Official Receipt"
-                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
-              />
             </div>
           </div>
 
-          {/* Section 3: Interactive Operating Schedule (For Appointment or Both) */}
-          {(formData.service_type === 'appointment' || formData.service_type === 'both') && (
-            <div className="bg-slate-50/75 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-brand-600" />
-                    <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      Weekly Operating Schedule & Time Slots
-                    </span>
-                    <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        schedules.length > 0
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-rose-50 text-rose-700 border border-rose-200'
-                      }`}
-                    >
-                      {schedules.length} Day{schedules.length !== 1 ? 's' : ''} Active
-                    </span>
+          {/* SCROLLABLE FORM BODY: Unified single scroll container */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-5">
+            {/* TAB 1: SERVICE DETAILS & CAMPUS OFFICE */}
+            {activeModalTab === 'details' && (
+              <div className="space-y-5 animate-in fade-in duration-150">
+                {/* Basic Identification */}
+                <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-2xs">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+                    <Layers className="w-4 h-4 text-brand-600" />
+                    <span>Basic Information</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Toggle active service days and configure booking slot durations and capacities.
-                  </p>
-                </div>
 
-                {/* Quick Presets */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Presets:</span>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('mon-fri')}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
-                  >
-                    Mon - Fri
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('mwf')}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
-                  >
-                    MWF
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('tth')}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
-                  >
-                    TTh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('all')}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg transition shadow-2xs"
-                  >
-                    All Days
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => applyPreset('clear')}
-                    className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 rounded-lg transition shadow-2xs"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
-
-              {/* Day Toggle Buttons */}
-              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-                {WEEK_DAYS.map((d) => {
-                  const daySchedule = schedules.find((s) => s.day_of_week === d.day);
-                  const isActive = !!daySchedule;
-                  return (
-                    <button
-                      key={d.day}
-                      type="button"
-                      onClick={() => toggleDay(d.day)}
-                      className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center relative shadow-2xs ${
-                        isActive
-                          ? 'bg-brand-600 border-brand-600 text-white shadow-brand-600/20'
-                          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                      }`}
-                    >
-                      <span className="font-extrabold text-xs">{d.short}</span>
-                      <span
-                        className={`text-[10px] mt-0.5 font-medium ${
-                          isActive ? 'text-brand-100' : 'text-slate-400'
-                        }`}
-                      >
-                        {isActive
-                          ? `${daySchedule.start_time.substring(0, 5)} - ${daySchedule.end_time.substring(0, 5)}`
-                          : 'Closed'}
-                      </span>
-                      {isActive && (
-                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-emerald-300"></span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {schedules.length === 0 ? (
-                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-center text-xs text-amber-800 flex items-center justify-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                  <span>
-                    No operational days active. Please click one or more day buttons above to configure schedules.
-                  </span>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {/* Batch Settings Bar */}
-                  <div className="p-3 bg-white border border-slate-200/80 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
-                    <div className="flex items-center gap-1.5 text-slate-700 font-bold">
-                      <Sliders className="w-3.5 h-3.5 text-brand-600" />
-                      <span>Batch Hours & Slot Settings:</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Service Name <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="e.g. Official Transcript of Records (TOR)"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                      />
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold text-slate-500">From:</span>
-                        <input
-                          type="time"
-                          value={batchStart}
-                          onChange={(e) => setBatchStart(e.target.value)}
-                          className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Unique Code <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.code}
+                        onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                        placeholder="e.g. REG-TOR"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono uppercase bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Description / Student Guidelines
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Briefly describe the purpose of this service, steps for the student, or special instructions..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* Delivery Mode & Campus Office Assignment */}
+                <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-2xs">
+                  <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+                    <Building2 className="w-4 h-4 text-brand-600" />
+                    <span>Service Delivery & Office Assignment</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Service Type Option */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Service Type <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={formData.service_type}
+                        onChange={(e) => setFormData({ ...formData, service_type: e.target.value as ServiceType })}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                      >
+                        <option value="appointment">Appointment-Based (Online Bookings)</option>
+                        <option value="queue">Queue-Based (Walk-In Tickets)</option>
+                        <option value="both">Both (Appointment & Walk-In Queue)</option>
+                      </select>
+
+                      <div className="mt-2 text-[11px] text-slate-500 flex items-center gap-1.5 bg-white p-2 rounded-lg border border-slate-200/60">
+                        <span
+                          className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                            formData.service_type === 'both'
+                              ? 'bg-violet-500'
+                              : formData.service_type === 'queue'
+                              ? 'bg-teal-500'
+                              : 'bg-indigo-500'
+                          }`}
                         />
+                        <span>
+                          {formData.service_type === 'both'
+                            ? 'Hybrid: Students can book appointment slots OR take live walk-in queue tickets.'
+                            : formData.service_type === 'queue'
+                            ? 'Walk-In: Students request live queue tickets for counter calling during office hours.'
+                            : 'Scheduled: Students reserve designated appointment date and time slots.'}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold text-slate-500">To:</span>
-                        <input
-                          type="time"
-                          value={batchEnd}
-                          onChange={(e) => setBatchEnd(e.target.value)}
-                          className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
-                        />
+                    </div>
+
+                    {/* Category / Department Office Dropdown (Not free text) */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Category / Department Office <span className="text-rose-500">*</span>
+                      </label>
+                      <select
+                        value={isCustomCategory ? '__custom__' : formData.category}
+                        onChange={(e) => {
+                          if (e.target.value === '__custom__') {
+                            setIsCustomCategory(true);
+                            setCustomCategory('');
+                          } else {
+                            setIsCustomCategory(false);
+                            setFormData({ ...formData, category: e.target.value });
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                      >
+                        <optgroup label="Registered Campus Offices">
+                          {availableCategories.map((cat) => (
+                            <option key={cat} value={cat}>
+                              {cat}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="New Department">
+                          <option value="__custom__">+ Register New Office / Department...</option>
+                        </optgroup>
+                      </select>
+
+                      {isCustomCategory ? (
+                        <div className="mt-2 animate-in fade-in">
+                          <input
+                            type="text"
+                            required
+                            value={customCategory}
+                            onChange={(e) => {
+                              setCustomCategory(e.target.value);
+                              setFormData({ ...formData, category: e.target.value });
+                            }}
+                            placeholder="Enter new office name (e.g. Clinic, Admissions)..."
+                            className="w-full px-4 py-2 rounded-xl border border-brand-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                            autoFocus
+                          />
+                          <span className="text-[10px] text-slate-400 mt-0.5 block">
+                            This will register a new department category across the system.
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400 mt-2 block">
+                          Assigned counter staff and displays will filter tickets for this office.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Counter Desk / Room Location
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.location_or_counter}
+                        onChange={(e) => setFormData({ ...formData, location_or_counter: e.target.value })}
+                        placeholder="e.g. Registrar Window 1"
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Est. Duration (Mins)
+                      </label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="180"
+                        onWheel={(e) => (e.target as HTMLElement).blur()}
+                        value={formData.estimated_duration_mins}
+                        onChange={(e) =>
+                          setFormData({ ...formData, estimated_duration_mins: parseInt(e.target.value) || 15 })
+                        }
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                        Max Daily Capacity
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="1000"
+                        onWheel={(e) => (e.target as HTMLElement).blur()}
+                        value={formData.max_daily_capacity}
+                        onChange={(e) =>
+                          setFormData({ ...formData, max_daily_capacity: parseInt(e.target.value) || 50 })
+                        }
+                        className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Required Documents / Prerequisites
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.requirements}
+                      onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                      placeholder="e.g. Valid Student ID, Clearance Form, Official Receipt"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                    />
+                    <span className="text-[11px] text-slate-400 mt-1 block">
+                      Separate documents with commas. These requirements will be shown to students during booking.
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 2: OPERATING SCHEDULE (FOR APPOINTMENT OR BOTH) */}
+            {activeModalTab === 'schedule' && (
+              <div className="space-y-5 animate-in fade-in duration-150">
+                <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-5 space-y-4 shadow-2xs">
+                  {/* Schedule Header & Presets */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/60">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4 text-brand-600" />
+                        <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                          Weekly Operating Schedule & Time Slots
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold text-slate-500">Slot:</span>
-                        <select
-                          value={batchSlotMins}
-                          onChange={(e) => setBatchSlotMins(Number(e.target.value))}
-                          className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
+                      <div className="flex items-center gap-2 mt-1 text-xs">
+                        <span
+                          className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                            schedules.length > 0
+                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                              : 'bg-rose-100 text-rose-800 border border-rose-200'
+                          }`}
                         >
-                          <option value="15">15 min</option>
-                          <option value="20">20 min</option>
-                          <option value="30">30 min</option>
-                          <option value="45">45 min</option>
-                          <option value="60">60 min</option>
-                        </select>
+                          {schedules.length} Active Day{schedules.length !== 1 ? 's' : ''}
+                        </span>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-slate-600 font-medium text-[11px]">
+                          {scheduleStats.totalSlots} Weekly Slots
+                        </span>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-slate-600 font-medium text-[11px]">
+                          {scheduleStats.totalCapacity} Total Capacity
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-[10px] font-semibold text-slate-500">Max/Slot:</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="20"
-                          value={batchCapacity}
-                          onChange={(e) => setBatchCapacity(Number(e.target.value) || 1)}
-                          className="w-14 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-center"
-                        />
-                      </div>
+                    </div>
+
+                    {/* Presets */}
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Presets:</span>
                       <button
                         type="button"
-                        onClick={applyBatchHours}
-                        className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs shadow-2xs transition"
+                        onClick={() => applyPreset('mon-fri')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
                       >
-                        Apply to All Active Days
+                        Mon - Fri
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('mwf')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
+                      >
+                        MWF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('tth')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
+                      >
+                        TTh
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('all')}
+                        className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg transition shadow-2xs"
+                      >
+                        All Days
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset('clear')}
+                        className="px-2.5 py-1 text-xs font-semibold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 rounded-lg transition shadow-2xs"
+                      >
+                        Clear
                       </button>
                     </div>
                   </div>
 
-                  {/* Individual Day Cards */}
-                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
-                    {schedules.map((s) => {
-                      const dayMeta = WEEK_DAYS.find((d) => d.day === s.day_of_week);
-                      const startSec = timeToSeconds(s.start_time);
-                      const endSec = timeToSeconds(s.end_time);
-                      const durSec = (s.slot_duration_mins || 30) * 60;
-                      const daySlotsCount =
-                        durSec > 0 && endSec > startSec ? Math.floor((endSec - startSec) / durSec) : 0;
-                      const dayTotalCapacity = daySlotsCount * (s.max_students_per_slot || 3);
-
-                      return (
-                        <div
-                          key={s.day_of_week}
-                          className="p-3 bg-white border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-brand-200 transition"
-                        >
-                          <div className="flex items-center gap-2 min-w-36">
-                            <span className="px-2.5 py-1 bg-brand-50 text-brand-700 font-bold rounded-lg text-xs">
-                              {dayMeta?.name}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-medium">
-                              {daySlotsCount} slots • {dayTotalCapacity} capacity
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-2 flex-wrap text-xs">
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-semibold">Start:</span>
-                              <input
-                                type="time"
-                                value={s.start_time.substring(0, 5)}
-                                onChange={(e) =>
-                                  updateDaySchedule(s.day_of_week, 'start_time', e.target.value)
-                                }
-                                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
-                              />
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-semibold">End:</span>
-                              <input
-                                type="time"
-                                value={s.end_time.substring(0, 5)}
-                                onChange={(e) =>
-                                  updateDaySchedule(s.day_of_week, 'end_time', e.target.value)
-                                }
-                                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
-                              />
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-semibold">Duration:</span>
-                              <select
-                                value={s.slot_duration_mins}
-                                onChange={(e) =>
-                                  updateDaySchedule(
-                                    s.day_of_week,
-                                    'slot_duration_mins',
-                                    Number(e.target.value)
-                                  )
-                                }
-                                className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
-                              >
-                                <option value="15">15 min</option>
-                                <option value="20">20 min</option>
-                                <option value="30">30 min</option>
-                                <option value="45">45 min</option>
-                                <option value="60">60 min</option>
-                              </select>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <span className="text-[10px] text-slate-400 font-semibold">Max:</span>
-                              <input
-                                type="number"
-                                min="1"
-                                max="20"
-                                value={s.max_students_per_slot}
-                                onChange={(e) =>
-                                  updateDaySchedule(
-                                    s.day_of_week,
-                                    'max_students_per_slot',
-                                    Number(e.target.value) || 1
-                                  )
-                                }
-                                className="w-12 px-1.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-center"
-                              />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => toggleDay(s.day_of_week)}
-                              className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
-                              title={`Remove ${dayMeta?.name}`}
+                  {/* 7 Days Selector Buttons */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Click Days to Toggle Service Availability:
+                    </label>
+                    <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                      {WEEK_DAYS.map((d) => {
+                        const daySchedule = schedules.find((s) => s.day_of_week === d.day);
+                        const isActive = !!daySchedule;
+                        return (
+                          <button
+                            key={d.day}
+                            type="button"
+                            onClick={() => toggleDay(d.day)}
+                            className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center relative shadow-2xs ${
+                              isActive
+                                ? 'bg-brand-600 border-brand-600 text-white shadow-brand-600/20 ring-2 ring-brand-400/30'
+                                : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className="font-extrabold text-xs">{d.short}</span>
+                            <span
+                              className={`text-[10px] mt-0.5 font-medium ${
+                                isActive ? 'text-brand-100' : 'text-slate-400'
+                              }`}
                             >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                              {isActive
+                                ? `${daySchedule.start_time.substring(0, 5)} - ${daySchedule.end_time.substring(0, 5)}`
+                                : 'Closed'}
+                            </span>
+                            {isActive && (
+                              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-emerald-300 shadow-xs"></span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  {schedules.length === 0 ? (
+                    <div className="p-5 bg-amber-50 border border-amber-200 rounded-xl text-center text-xs text-amber-800 flex items-center justify-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <span>
+                        No operating days selected. Click <strong>"Mon - Fri"</strong> preset above or click any day buttons to activate schedule slots.
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pt-1">
+                      {/* Batch Settings Bar */}
+                      <div className="p-3.5 bg-white border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
+                        <div className="flex items-center gap-2 text-slate-700 font-bold">
+                          <Sliders className="w-4 h-4 text-brand-600" />
+                          <span>Apply Hours to All Active Days:</span>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-semibold text-slate-500">From:</span>
+                            <input
+                              type="time"
+                              value={batchStart}
+                              onChange={(e) => setBatchStart(e.target.value)}
+                              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium focus:ring-1 focus:ring-brand-500"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-semibold text-slate-500">To:</span>
+                            <input
+                              type="time"
+                              value={batchEnd}
+                              onChange={(e) => setBatchEnd(e.target.value)}
+                              className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium focus:ring-1 focus:ring-brand-500"
+                            />
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-semibold text-slate-500">Slot:</span>
+                            <select
+                              value={batchSlotMins}
+                              onChange={(e) => setBatchSlotMins(Number(e.target.value))}
+                              className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:ring-1 focus:ring-brand-500"
+                            >
+                              <option value="15">15 min</option>
+                              <option value="20">20 min</option>
+                              <option value="30">30 min</option>
+                              <option value="45">45 min</option>
+                              <option value="60">60 min</option>
+                            </select>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-semibold text-slate-500">Max/Slot:</span>
+                            <input
+                              type="number"
+                              min="1"
+                              max="20"
+                              onWheel={(e) => (e.target as HTMLElement).blur()}
+                              value={batchCapacity}
+                              onChange={(e) => setBatchCapacity(Number(e.target.value) || 1)}
+                              className="w-14 px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-center font-bold focus:ring-1 focus:ring-brand-500"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={applyBatchHours}
+                            className="px-3 py-1.5 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs shadow-2xs transition active:scale-95"
+                          >
+                            Apply to All
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Individual Day Cards (Directly rendered, NO nested scroll trap) */}
+                      <div className="space-y-2.5">
+                        {schedules.map((s) => {
+                          const dayMeta = WEEK_DAYS.find((d) => d.day === s.day_of_week);
+                          const startSec = timeToSeconds(s.start_time);
+                          const endSec = timeToSeconds(s.end_time);
+                          const durSec = (s.slot_duration_mins || 30) * 60;
+                          const daySlotsCount =
+                            durSec > 0 && endSec > startSec ? Math.floor((endSec - startSec) / durSec) : 0;
+                          const dayTotalCapacity = daySlotsCount * (s.max_students_per_slot || 3);
+
+                          return (
+                            <div
+                              key={s.day_of_week}
+                              className="p-3.5 bg-white border border-slate-200 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs hover:border-brand-200 transition"
+                            >
+                              <div className="flex items-center gap-2.5 min-w-44">
+                                <span className="px-3 py-1 bg-brand-50 text-brand-700 font-bold rounded-lg text-xs">
+                                  {dayMeta?.name}
+                                </span>
+                                <span className="text-[11px] text-slate-500 font-medium">
+                                  {daySlotsCount} slots • {dayTotalCapacity} capacity
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2.5 flex-wrap text-xs">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase">Start:</span>
+                                  <input
+                                    type="time"
+                                    value={s.start_time.substring(0, 5)}
+                                    onChange={(e) =>
+                                      updateDaySchedule(s.day_of_week, 'start_time', e.target.value)
+                                    }
+                                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase">End:</span>
+                                  <input
+                                    type="time"
+                                    value={s.end_time.substring(0, 5)}
+                                    onChange={(e) =>
+                                      updateDaySchedule(s.day_of_week, 'end_time', e.target.value)
+                                    }
+                                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono font-medium"
+                                  />
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase">Duration:</span>
+                                  <select
+                                    value={s.slot_duration_mins}
+                                    onChange={(e) =>
+                                      updateDaySchedule(
+                                        s.day_of_week,
+                                        'slot_duration_mins',
+                                        Number(e.target.value)
+                                      )
+                                    }
+                                    className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium"
+                                  >
+                                    <option value="15">15 min</option>
+                                    <option value="20">20 min</option>
+                                    <option value="30">30 min</option>
+                                    <option value="45">45 min</option>
+                                    <option value="60">60 min</option>
+                                  </select>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px] text-slate-400 font-bold uppercase">Max/Slot:</span>
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max="20"
+                                    onWheel={(e) => (e.target as HTMLElement).blur()}
+                                    value={s.max_students_per_slot}
+                                    onChange={(e) =>
+                                      updateDaySchedule(
+                                        s.day_of_week,
+                                        'max_students_per_slot',
+                                        Number(e.target.value) || 1
+                                      )
+                                    }
+                                    className="w-12 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-center font-bold"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleDay(s.day_of_week)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                                  title={`Remove ${dayMeta?.name}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* STICKY FOOTER ACTIONS: Always pinned & visible at bottom without scrolling */}
+          <div className="sticky bottom-0 z-20 px-6 py-3.5 bg-slate-50/95 backdrop-blur-sm border-t border-slate-200/90 flex items-center justify-between flex-shrink-0">
+            <div className="text-xs text-slate-500 font-medium hidden sm:block">
+              {activeModalTab === 'details' ? (
+                (formData.service_type === 'appointment' || formData.service_type === 'both') ? (
+                  <span>Step 1 of 2 • Next: Schedule ({schedules.length} active days)</span>
+                ) : (
+                  <span>Walk-in queue service • No schedule configuration needed</span>
+                )
+              ) : (
+                <span>Step 2 of 2 • {scheduleStats.totalSlots} total weekly booking slots</span>
               )}
             </div>
-          )}
 
-          {/* Modal Footer Actions */}
-          <div className="pt-4 flex items-center justify-between border-t border-slate-100">
-            <span className="text-xs text-slate-400">
-              {editingService ? 'Modifying existing catalog service' : 'Creating new institutional service'}
-            </span>
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-2.5 ml-auto">
               <button
                 type="button"
                 onClick={() => {
                   setIsCreateOpen(false);
                   setEditingService(null);
                 }}
-                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+                className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-200/70 active:bg-slate-200 font-semibold text-xs transition border border-transparent hover:border-slate-300"
               >
                 Cancel
               </button>
+
+              {activeModalTab === 'details' && (formData.service_type === 'appointment' || formData.service_type === 'both') && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('schedule')}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center gap-1.5 border border-slate-200"
+                >
+                  <span>Next: Schedule</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {activeModalTab === 'schedule' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveModalTab('details')}
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center gap-1.5 border border-slate-200"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Details</span>
+                </button>
+              )}
+
               <button
                 type="submit"
                 disabled={formLoading}
-                className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md shadow-brand-600/20 transition active:scale-95 disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md shadow-brand-600/20 transition active:scale-95 disabled:opacity-50 flex items-center gap-2"
               >
-                {formLoading ? 'Saving Service...' : editingService ? 'Update Service' : 'Create Service'}
+                {formLoading ? (
+                  <span>Saving Service...</span>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>{editingService ? 'Save Changes' : 'Create Service'}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>
