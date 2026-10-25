@@ -44,6 +44,9 @@ export const Badge: React.FC<BadgeProps> = ({ status, className = '', children }
   } else if (normalized === 'queue') {
     colorClasses = 'bg-teal-50 text-teal-700 border-teal-200';
     dotColor = 'bg-teal-500';
+  } else if (normalized === 'both') {
+    colorClasses = 'bg-violet-50 text-violet-700 border-violet-200';
+    dotColor = 'bg-violet-500';
   } else if (normalized === 'admin') {
     colorClasses = 'bg-purple-50 text-purple-700 border-purple-200';
     dotColor = 'bg-purple-500';
@@ -55,10 +58,12 @@ export const Badge: React.FC<BadgeProps> = ({ status, className = '', children }
     dotColor = 'bg-emerald-500';
   }
 
+  const displayLabel = children || (normalized === 'both' ? 'Appointment & Queue' : status);
+
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full border shadow-2xs capitalize ${colorClasses} ${className}`}>
       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor}`} />
-      <span>{children || status}</span>
+      <span>{displayLabel}</span>
     </span>
   );
 };

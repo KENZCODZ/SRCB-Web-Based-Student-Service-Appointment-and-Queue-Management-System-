@@ -18,7 +18,7 @@ class AppointmentService {
         }
 
         $service = ServiceManager::getServiceById($serviceId);
-        if (!$service || $service['service_type'] !== 'appointment' || (int)$service['is_active'] !== 1) {
+        if (!$service || !in_array($service['service_type'], ['appointment', 'both'], true) || (int)$service['is_active'] !== 1) {
             Response::error('The selected service is not available for online appointment booking.', 400);
         }
 

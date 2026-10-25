@@ -71,7 +71,7 @@ class DashboardController {
                     ) as now_serving
                 FROM services s
                 LEFT JOIN queue_entries q ON s.id = q.service_id AND q.queue_date = CURDATE()
-                WHERE s.service_type = 'queue' AND s.is_active = 1
+                WHERE s.service_type IN ('queue', 'both') AND s.is_active = 1
                 GROUP BY s.id
                 ORDER BY s.category ASC, s.name ASC
             ");
@@ -170,8 +170,8 @@ class DashboardController {
         $svcSql = "
             SELECT 
                 COUNT(*) as total_services,
-                COUNT(CASE WHEN service_type = 'appointment' AND is_active = 1 THEN 1 END) as active_appointment_services,
-                COUNT(CASE WHEN service_type = 'queue' AND is_active = 1 THEN 1 END) as active_queue_services
+                COUNT(CASE WHEN service_type IN ('appointment', 'both') AND is_active = 1 THEN 1 END) as active_appointment_services,
+                COUNT(CASE WHEN service_type IN ('queue', 'both') AND is_active = 1 THEN 1 END) as active_queue_services
             FROM services
             WHERE 1=1 {$svcOfficeFilter}
         ";
@@ -268,7 +268,7 @@ class DashboardController {
                 ) as counter_number
             FROM services s
             LEFT JOIN queue_entries q ON s.id = q.service_id AND q.queue_date = CURDATE()
-            WHERE s.service_type = 'queue' AND s.is_active = 1 {$aptOfficeFilter}
+            WHERE s.service_type IN ('queue', 'both') AND s.is_active = 1 {$aptOfficeFilter}
             GROUP BY s.id
             ORDER BY s.category ASC, s.name ASC
         ";

@@ -16,7 +16,7 @@ export interface User {
   created_at?: string;
 }
 
-export type ServiceType = 'appointment' | 'queue';
+export type ServiceType = 'appointment' | 'queue' | 'both';
 
 export interface ServiceSchedule {
   id?: number;

@@ -251,6 +251,7 @@ export const AdminDashboard: React.FC = () => {
                     </span>
                     <h3 className="font-bold text-sm text-slate-900 mt-1 truncate" title={counter.service_name}>
                       {counter.service_name}
+                      
                     </h3>
                     <p className="text-[11px] text-slate-400 truncate mt-0.5" title={counter.location_or_counter}>
                       {counter.location_or_counter}

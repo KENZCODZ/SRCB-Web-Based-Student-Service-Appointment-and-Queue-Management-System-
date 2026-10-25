@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { api } from '../../services/api';
-import { Service, ServiceSchedule } from '../../types';
+import { Service, ServiceSchedule, ServiceType } from '../../types';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import {
@@ -17,7 +17,9 @@ import {
   AlertCircle,
   X,
   Sliders,
-  Check
+  Check,
+  Building2,
+  Sparkles
 } from 'lucide-react';
 
 const WEEK_DAYS = [
@@ -62,11 +64,35 @@ export const ServiceManagement: React.FC = () => {
     }
   }, [toastMessage, toastError]);
 
+  // Standard registered campus office categories
+  const standardOfficeCategories = [
+    'Registrar',
+    'Finance',
+    'IT Department',
+    'Guidance',
+    'Dean Office',
+    'Library',
+  ];
+
+  // Derived unique categories from existing services and standard campus offices
+  const availableCategories = useMemo(() => {
+    const list = [...standardOfficeCategories];
+    services.forEach((s) => {
+      if (s.category && s.category.trim() && !list.includes(s.category.trim())) {
+        list.push(s.category.trim());
+      }
+    });
+    return list;
+  }, [services]);
+
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
+  const [customCategory, setCustomCategory] = useState('');
+
   // Form State
   const [formData, setFormData] = useState({
     name: '',
     code: '',
-    service_type: 'appointment',
+    service_type: 'appointment' as ServiceType,
     category: 'Registrar',
     location_or_counter: '',
     estimated_duration_mins: 15,
@@ -104,11 +130,13 @@ export const ServiceManagement: React.FC = () => {
 
   const openCreateModal = () => {
     setEditingService(null);
+    setIsCustomCategory(false);
+    setCustomCategory('');
     setFormData({
       name: '',
       code: '',
       service_type: 'appointment',
-      category: 'Registrar',
+      category: availableCategories[0] || 'Registrar',
       location_or_counter: '',
       estimated_duration_mins: 15,
       max_daily_capacity: 50,
@@ -126,6 +154,9 @@ export const ServiceManagement: React.FC = () => {
 
   const openEditModal = async (service: Service) => {
     setEditingService(service);
+    const isCustom = !availableCategories.includes(service.category);
+    setIsCustomCategory(isCustom);
+    setCustomCategory(isCustom ? service.category : '');
     setFormData({
       name: service.name,
       code: service.code,
@@ -249,9 +280,11 @@ export const ServiceManagement: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (formData.service_type === 'appointment') {
+    const isAppointmentOrBoth = formData.service_type === 'appointment' || formData.service_type === 'both';
+
+    if (isAppointmentOrBoth) {
       if (schedules.length === 0) {
-        setFormError('Please activate at least one operating day for this appointment service.');
+        setFormError('Please activate at least one operating day for this appointment/hybrid service.');
         return;
       }
       for (const s of schedules) {
@@ -263,13 +296,20 @@ export const ServiceManagement: React.FC = () => {
       }
     }
 
+    const finalCategory = isCustomCategory ? customCategory.trim() : formData.category;
+    if (!finalCategory) {
+      setFormError('Please select or specify a category / department for this service.');
+      return;
+    }
+
     setFormLoading(true);
     setFormError('');
 
     try {
       const payload = {
         ...formData,
-        schedules: formData.service_type === 'appointment' ? schedules : [],
+        category: finalCategory,
+        schedules: isAppointmentOrBoth ? schedules : [],
       };
 
       if (editingService) {
@@ -419,7 +459,7 @@ export const ServiceManagement: React.FC = () => {
                       <Badge status={service.service_type} />
                       <span className="text-slate-500 text-xs">{service.category}</span>
                     </div>
-                    {service.service_type === 'appointment' && (
+                    {(service.service_type === 'appointment' || service.service_type === 'both') && (
                       <div className="mt-1 flex items-center gap-1.5 text-[11px] text-slate-500">
                         <Clock className="w-3 h-3 text-brand-600 flex-shrink-0" />
                         <span>
@@ -492,154 +532,226 @@ export const ServiceManagement: React.FC = () => {
           setEditingService(null);
         }}
         title={editingService ? `Edit Service: ${editingService.name}` : 'Create New Student Service'}
-        maxWidth="2xl"
+        maxWidth="3xl"
       >
-        <form onSubmit={handleSave} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-6">
           {formError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{formError}</span>
+            <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs flex items-center gap-2.5 shadow-2xs animate-in fade-in">
+              <AlertCircle className="w-4 h-4 flex-shrink-0 text-rose-600" />
+              <span className="font-semibold">{formError}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Section 1: Basic Information */}
+          <div className="bg-slate-50/75 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+              <Layers className="w-4 h-4 text-brand-600" />
+              <span>Basic Information</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Service Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g. Official Transcript of Records (TOR)"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Unique Code <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                  placeholder="e.g. REG-TOR"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-mono uppercase bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Service Name *
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Description / Student Guidelines
+              </label>
+              <textarea
+                rows={2}
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Briefly describe the purpose of this service, steps for the student, or special instructions..."
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+              />
+            </div>
+          </div>
+
+          {/* Section 2: Delivery Mode & Office */}
+          <div className="bg-slate-50/75 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-700">
+              <Building2 className="w-4 h-4 text-brand-600" />
+              <span>Service Delivery & Office Assignment</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {/* Service Type Option */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Service Type <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formData.service_type}
+                  onChange={(e) => setFormData({ ...formData, service_type: e.target.value as ServiceType })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                >
+                  <option value="appointment">Appointment-Based (Online Bookings)</option>
+                  <option value="queue">Queue-Based (Walk-In Tickets)</option>
+                  <option value="both">Both (Appointment & Walk-In Queue)</option>
+                </select>
+
+                <div className="mt-1.5 text-[11px] text-slate-500 flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${
+                    formData.service_type === 'both' ? 'bg-violet-500' : formData.service_type === 'queue' ? 'bg-teal-500' : 'bg-indigo-500'
+                  }`} />
+                  <span>
+                    {formData.service_type === 'both'
+                      ? 'Hybrid: Students can book advance time slots OR take same-day queue tickets.'
+                      : formData.service_type === 'queue'
+                      ? 'Walk-In: Students request digital live queue tickets for counter calling.'
+                      : 'Scheduled: Students reserve designated appointment date and time slots.'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Category / Department Dropdown (Not free text) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Category / Department Office <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={isCustomCategory ? '__custom__' : formData.category}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setIsCustomCategory(true);
+                      setCustomCategory('');
+                    } else {
+                      setIsCustomCategory(false);
+                      setFormData({ ...formData, category: e.target.value });
+                    }
+                  }}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white font-medium focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                >
+                  <optgroup label="Registered Campus Offices">
+                    {availableCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="New Department">
+                    <option value="__custom__">+ Register New Office / Department...</option>
+                  </optgroup>
+                </select>
+
+                {isCustomCategory && (
+                  <div className="mt-2 animate-in fade-in">
+                    <input
+                      type="text"
+                      required
+                      value={customCategory}
+                      onChange={(e) => {
+                        setCustomCategory(e.target.value);
+                        setFormData({ ...formData, category: e.target.value });
+                      }}
+                      placeholder="Enter new office name (e.g. Clinic, Admissions)..."
+                      className="w-full px-4 py-2 rounded-xl border border-brand-300 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 shadow-2xs"
+                      autoFocus
+                    />
+                    <span className="text-[10px] text-slate-400 mt-0.5 block">
+                      This will register a new department category across the system.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Counter Desk / Room Location
+                </label>
+                <input
+                  type="text"
+                  value={formData.location_or_counter}
+                  onChange={(e) => setFormData({ ...formData, location_or_counter: e.target.value })}
+                  placeholder="e.g. Registrar Window 1"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Est. Duration (Mins)
+                </label>
+                <input
+                  type="number"
+                  min="5"
+                  max="180"
+                  value={formData.estimated_duration_mins}
+                  onChange={(e) =>
+                    setFormData({ ...formData, estimated_duration_mins: parseInt(e.target.value) || 15 })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Max Daily Capacity
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="1000"
+                  value={formData.max_daily_capacity}
+                  onChange={(e) =>
+                    setFormData({ ...formData, max_daily_capacity: parseInt(e.target.value) || 50 })
+                  }
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Required Documents / Prerequisites
               </label>
               <input
                 type="text"
-                required
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g. Official Transcript of Records"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Unique Service Code *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-                placeholder="e.g. REG-TOR"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                value={formData.requirements}
+                onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
+                placeholder="e.g. Valid Student ID, Clearance Form, Official Receipt"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition shadow-2xs"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Service Type *
-              </label>
-              <select
-                value={formData.service_type}
-                onChange={(e) => setFormData({ ...formData, service_type: e.target.value })}
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm bg-white"
-              >
-                <option value="appointment">Appointment-Based</option>
-                <option value="queue">Queue-Based (Walk-In)</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Category / Department *
-              </label>
-              <input
-                type="text"
-                required
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                placeholder="e.g. Registrar, Finance, Guidance"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Est. Duration (Mins)
-              </label>
-              <input
-                type="number"
-                min="5"
-                max="120"
-                value={formData.estimated_duration_mins}
-                onChange={(e) =>
-                  setFormData({ ...formData, estimated_duration_mins: parseInt(e.target.value) || 15 })
-                }
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Location / Counter Desk
-              </label>
-              <input
-                type="text"
-                value={formData.location_or_counter}
-                onChange={(e) => setFormData({ ...formData, location_or_counter: e.target.value })}
-                placeholder="e.g. Registrar Window 1"
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Max Daily Capacity
-              </label>
-              <input
-                type="number"
-                min="1"
-                max="500"
-                value={formData.max_daily_capacity}
-                onChange={(e) =>
-                  setFormData({ ...formData, max_daily_capacity: parseInt(e.target.value) || 50 })
-                }
-                className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Required Documents / Prerequisites
-            </label>
-            <input
-              type="text"
-              value={formData.requirements}
-              onChange={(e) => setFormData({ ...formData, requirements: e.target.value })}
-              placeholder="e.g. Valid Student ID, Clearance Form, Official Receipt"
-              className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              Description / Notes
-            </label>
-            <textarea
-              rows={2}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Service purpose and additional student guidelines..."
-              className="w-full px-4 py-2 rounded-xl border border-slate-200 text-sm"
-            />
-          </div>
-
-          {/* Interactive Weekly Schedule Configuration (Appointment-Based Services) */}
-          {formData.service_type === 'appointment' && (
-            <div className="pt-4 border-t border-slate-100 space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          {/* Section 3: Interactive Operating Schedule (For Appointment or Both) */}
+          {(formData.service_type === 'appointment' || formData.service_type === 'both') && (
+            <div className="bg-slate-50/75 border border-slate-200/80 rounded-2xl p-4 sm:p-5 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-1">
                 <div>
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4 text-brand-600" />
                     <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                      Active Weekly Operating Schedule
+                      Weekly Operating Schedule & Time Slots
                     </span>
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
@@ -652,7 +764,7 @@ export const ServiceManagement: React.FC = () => {
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Click day buttons to toggle operating days, or adjust hours and slot capacities below.
+                    Toggle active service days and configure booking slot durations and capacities.
                   </p>
                 </div>
 
@@ -662,35 +774,35 @@ export const ServiceManagement: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => applyPreset('mon-fri')}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-700 rounded-lg transition"
+                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
                   >
                     Mon - Fri
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPreset('mwf')}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-700 rounded-lg transition"
+                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
                   >
                     MWF
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPreset('tth')}
-                    className="px-2.5 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-700 rounded-lg transition"
+                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-brand-50 hover:text-brand-700 hover:border-brand-300 text-slate-700 rounded-lg transition shadow-2xs"
                   >
                     TTh
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPreset('all')}
-                    className="px-2 py-1 text-[11px] font-semibold bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition"
+                    className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg transition shadow-2xs"
                   >
                     All Days
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPreset('clear')}
-                    className="px-2 py-1 text-[11px] font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition"
+                    className="px-2.5 py-1 text-[11px] font-semibold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 rounded-lg transition shadow-2xs"
                   >
                     Clear
                   </button>
@@ -707,10 +819,10 @@ export const ServiceManagement: React.FC = () => {
                       key={d.day}
                       type="button"
                       onClick={() => toggleDay(d.day)}
-                      className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center relative ${
+                      className={`p-2.5 rounded-xl border text-center transition flex flex-col items-center justify-center relative shadow-2xs ${
                         isActive
-                          ? 'bg-brand-600 border-brand-600 text-white shadow-sm ring-2 ring-brand-500/20'
-                          : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-white hover:border-slate-300'
+                          ? 'bg-brand-600 border-brand-600 text-white shadow-brand-600/20'
+                          : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                       }`}
                     >
                       <span className="font-extrabold text-xs">{d.short}</span>
@@ -741,7 +853,7 @@ export const ServiceManagement: React.FC = () => {
               ) : (
                 <div className="space-y-3">
                   {/* Batch Settings Bar */}
-                  <div className="p-3 bg-slate-50/80 border border-slate-200/80 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="p-3 bg-white border border-slate-200/80 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs shadow-2xs">
                     <div className="flex items-center gap-1.5 text-slate-700 font-bold">
                       <Sliders className="w-3.5 h-3.5 text-brand-600" />
                       <span>Batch Hours & Slot Settings:</span>
@@ -754,7 +866,7 @@ export const ServiceManagement: React.FC = () => {
                           type="time"
                           value={batchStart}
                           onChange={(e) => setBatchStart(e.target.value)}
-                          className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                          className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                         />
                       </div>
                       <div className="flex items-center gap-1">
@@ -763,7 +875,7 @@ export const ServiceManagement: React.FC = () => {
                           type="time"
                           value={batchEnd}
                           onChange={(e) => setBatchEnd(e.target.value)}
-                          className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono"
+                          className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono"
                         />
                       </div>
                       <div className="flex items-center gap-1">
@@ -771,7 +883,7 @@ export const ServiceManagement: React.FC = () => {
                         <select
                           value={batchSlotMins}
                           onChange={(e) => setBatchSlotMins(Number(e.target.value))}
-                          className="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs"
+                          className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs"
                         >
                           <option value="15">15 min</option>
                           <option value="20">20 min</option>
@@ -788,13 +900,13 @@ export const ServiceManagement: React.FC = () => {
                           max="20"
                           value={batchCapacity}
                           onChange={(e) => setBatchCapacity(Number(e.target.value) || 1)}
-                          className="w-14 px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono text-center"
+                          className="w-14 px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-center"
                         />
                       </div>
                       <button
                         type="button"
                         onClick={applyBatchHours}
-                        className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs shadow-sm transition"
+                        className="px-3 py-1 bg-brand-600 hover:bg-brand-700 text-white font-bold rounded-lg text-xs shadow-2xs transition"
                       >
                         Apply to All Active Days
                       </button>
@@ -802,7 +914,7 @@ export const ServiceManagement: React.FC = () => {
                   </div>
 
                   {/* Individual Day Cards */}
-                  <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
+                  <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
                     {schedules.map((s) => {
                       const dayMeta = WEEK_DAYS.find((d) => d.day === s.day_of_week);
                       const startSec = timeToSeconds(s.start_time);
@@ -815,7 +927,7 @@ export const ServiceManagement: React.FC = () => {
                       return (
                         <div
                           key={s.day_of_week}
-                          className="p-3 bg-white border border-slate-200 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs hover:border-slate-300 transition"
+                          className="p-3 bg-white border border-slate-200/90 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs hover:border-brand-200 transition"
                         >
                           <div className="flex items-center gap-2 min-w-36">
                             <span className="px-2.5 py-1 bg-brand-50 text-brand-700 font-bold rounded-lg text-xs">
@@ -904,24 +1016,30 @@ export const ServiceManagement: React.FC = () => {
             </div>
           )}
 
-          <div className="pt-3 flex justify-end gap-2 border-t border-slate-100">
-            <button
-              type="button"
-              onClick={() => {
-                setIsCreateOpen(false);
-                setEditingService(null);
-              }}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={formLoading}
-              className="px-5 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
-            >
-              {formLoading ? 'Saving...' : 'Save Service'}
-            </button>
+          {/* Modal Footer Actions */}
+          <div className="pt-4 flex items-center justify-between border-t border-slate-100">
+            <span className="text-xs text-slate-400">
+              {editingService ? 'Modifying existing catalog service' : 'Creating new institutional service'}
+            </span>
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCreateOpen(false);
+                  setEditingService(null);
+                }}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={formLoading}
+                className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-md shadow-brand-600/20 transition active:scale-95 disabled:opacity-50"
+              >
+                {formLoading ? 'Saving Service...' : editingService ? 'Update Service' : 'Create Service'}
+              </button>
+            </div>
           </div>
         </form>
       </Modal>

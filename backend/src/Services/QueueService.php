@@ -8,7 +8,7 @@ use PDO;
 class QueueService {
     public static function joinQueue(int $userId, int $serviceId): array {
         $service = ServiceManager::getServiceById($serviceId);
-        if (!$service || $service['service_type'] !== 'queue' || (int)$service['is_active'] !== 1) {
+        if (!$service || !in_array($service['service_type'], ['queue', 'both'], true) || (int)$service['is_active'] !== 1) {
             Response::error('Selected service is not currently accepting walk-in queue requests.', 400);
         }
 
@@ -318,7 +318,7 @@ class QueueService {
                    MIN(q.queue_number) as next_in_line
             FROM services s
             LEFT JOIN queue_entries q ON s.id = q.service_id AND q.queue_date = :date AND q.status = 'waiting'
-            WHERE s.service_type = 'queue' AND s.is_active = 1
+            WHERE s.service_type IN ('queue', 'both') AND s.is_active = 1
             GROUP BY s.id, s.name, s.code, s.category
             ORDER BY s.category ASC, s.name ASC
         ");
@@ -329,7 +329,7 @@ class QueueService {
         $officesStmt = $db->query("
             SELECT DISTINCT category 
             FROM services 
-            WHERE service_type = 'queue' AND is_active = 1 AND category IS NOT NULL AND TRIM(category) != ''
+            WHERE service_type IN ('queue', 'both') AND is_active = 1 AND category IS NOT NULL AND TRIM(category) != ''
             ORDER BY category ASC
         ");
         $registeredOffices = $officesStmt->fetchAll(PDO::FETCH_COLUMN);

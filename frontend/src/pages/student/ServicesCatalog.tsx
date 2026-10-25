@@ -189,7 +189,7 @@ export const ServicesCatalog: React.FC = () => {
   const categories = ['all', ...Array.from(new Set(services.map((s) => s.category)))];
 
   const filteredServices = services.filter((s) => {
-    const matchesTab = activeTab === 'all' || s.service_type === activeTab;
+    const matchesTab = activeTab === 'all' || s.service_type === activeTab || s.service_type === 'both';
     const matchesCat = selectedCategory === 'all' || s.category === selectedCategory;
     const matchesSearch =
       s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -321,7 +321,7 @@ export const ServicesCatalog: React.FC = () => {
                     <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                     <span>~{service.estimated_duration_mins} mins per student</span>
                   </div>
-                  {service.service_type === 'appointment' && (
+                  {(service.service_type === 'appointment' || service.service_type === 'both') && (
                     <div className="flex items-center gap-2 text-brand-700">
                       <Calendar className="w-3.5 h-3.5 text-brand-600 flex-shrink-0" />
                       <span className="font-medium truncate">
@@ -345,7 +345,27 @@ export const ServicesCatalog: React.FC = () => {
               </div>
 
               <div className="mt-5 pt-4 border-t border-slate-100">
-                {service.service_type === 'appointment' ? (
+                {service.service_type === 'both' ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleOpenBooking(service)}
+                      className="py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Calendar className="w-3.5 h-3.5" />
+                      <span>Book</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setQueueModalService(service);
+                        setQueueError('');
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>Queue</span>
+                    </button>
+                  </div>
+                ) : service.service_type === 'appointment' ? (
                   <button
                     onClick={() => handleOpenBooking(service)}
                     className="w-full py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"

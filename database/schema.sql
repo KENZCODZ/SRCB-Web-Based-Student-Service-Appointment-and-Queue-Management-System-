@@ -62,7 +62,7 @@ CREATE TABLE `services` (
     `code` VARCHAR(20) NOT NULL UNIQUE,
     `description` TEXT NULL,
     `category` VARCHAR(100) NOT NULL DEFAULT 'General',
-    `service_type` ENUM('appointment', 'queue') NOT NULL,
+    `service_type` ENUM('appointment', 'queue', 'both') NOT NULL,
     `location_or_counter` VARCHAR(150) NULL,
     `estimated_duration_mins` INT NOT NULL DEFAULT 15,
     `max_daily_capacity` INT NOT NULL DEFAULT 50,

@@ -100,9 +100,14 @@ class ServiceManager {
         if ($onlyActive) {
             $sql .= " AND s.is_active = 1";
         }
-        if ($type && in_array($type, ['appointment', 'queue'], true)) {
-            $sql .= " AND s.service_type = :type";
-            $params['type'] = $type;
+        if ($type && in_array($type, ['appointment', 'queue', 'both'], true)) {
+            if ($type === 'appointment') {
+                $sql .= " AND s.service_type IN ('appointment', 'both')";
+            } elseif ($type === 'queue') {
+                $sql .= " AND s.service_type IN ('queue', 'both')";
+            } else {
+                $sql .= " AND s.service_type = 'both'";
+            }
         }
         if ($category) {
             $sql .= " AND (s.category = :category OR s.category LIKE :category_like)";
@@ -192,8 +197,8 @@ class ServiceManager {
         $requirements = trim($data['requirements'] ?? '');
         $description = trim($data['description'] ?? '');
 
-        if (empty($name) || empty($code) || !in_array($type, ['appointment', 'queue'], true)) {
-            Response::error('Service name, unique code, and valid service type (appointment/queue) are required.', 422);
+        if (empty($name) || empty($code) || !in_array($type, ['appointment', 'queue', 'both'], true)) {
+            Response::error('Service name, unique code, and valid service type (appointment/queue/both) are required.', 422);
         }
 
         $db = Database::getConnection();
@@ -360,7 +365,7 @@ class ServiceManager {
      */
     public static function getAvailableSlots(int $serviceId, string $date): array {
         $service = self::getServiceById($serviceId);
-        if (!$service || $service['service_type'] !== 'appointment' || (int)$service['is_active'] !== 1) {
+        if (!$service || !in_array($service['service_type'], ['appointment', 'both'], true) || (int)$service['is_active'] !== 1) {
             Response::error('Invalid or inactive appointment service.', 400);
         }
 
