@@ -301,7 +301,7 @@ export const QueueManagement: React.FC = () => {
                   {currentCallingOrServing.queue_number}
                 </div>
                 <h3 className="text-base font-bold text-slate-800 mt-2">
-                  {currentCallingOrServing.first_name} {currentCallingOrServing.last_name}
+                  {currentCallingOrServing.first_name} {currentCallingOrServing.middle_name ? `${currentCallingOrServing.middle_name} ` : ''}{currentCallingOrServing.last_name}
                 </h3>
                 <p className="text-xs text-slate-400">
                   ID: {currentCallingOrServing.student_id_number || 'N/A'} • {currentCallingOrServing.department_or_course}
@@ -406,7 +406,7 @@ export const QueueManagement: React.FC = () => {
                         </td>
                         <td className="py-4 px-6">
                           <div className="font-bold text-slate-900">
-                            {t.first_name} {t.last_name}
+                            {t.first_name} {t.middle_name ? `${t.middle_name} ` : ''}{t.last_name}
                           </div>
                           <div className="text-[11px] text-slate-400">
                             {t.student_id_number || t.student_email}
@@ -478,7 +478,7 @@ export const QueueManagement: React.FC = () => {
                   {skippingTicket.queue_number}
                 </div>
                 <p className="text-xs font-bold text-slate-800 mt-0.5">
-                  {skippingTicket.first_name} {skippingTicket.last_name}
+                  {skippingTicket.first_name} {skippingTicket.middle_name ? `${skippingTicket.middle_name} ` : ''}{skippingTicket.last_name}
                 </p>
                 <p className="text-[11px] text-slate-500 font-mono">
                   ID: {skippingTicket.student_id_number || 'N/A'} • {skippingTicket.department_or_course || 'General'}

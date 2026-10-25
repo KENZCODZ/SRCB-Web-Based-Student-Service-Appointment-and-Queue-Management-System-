@@ -4,6 +4,7 @@ export interface User {
   id: number;
   student_id_number?: string | null;
   first_name: string;
+  middle_name?: string | null;
   last_name: string;
   email: string;
   role: UserRole;
@@ -76,6 +77,7 @@ export interface Appointment {
   // Joins
   student_id_number?: string | null;
   first_name?: string;
+  middle_name?: string | null;
   last_name?: string;
   student_email?: string;
   contact_number?: string | null;
@@ -87,6 +89,7 @@ export interface Appointment {
   location_or_counter?: string | null;
   requirements?: string | null;
   processor_first_name?: string | null;
+  processor_middle_name?: string | null;
   processor_last_name?: string | null;
 }
 
@@ -112,6 +115,7 @@ export interface QueueEntry {
   estimated_wait_mins?: number;
   student_id_number?: string | null;
   first_name?: string;
+  middle_name?: string | null;
   last_name?: string;
   student_email?: string;
   department_or_course?: string | null;
@@ -122,6 +126,7 @@ export interface QueueEntry {
   location_or_counter?: string | null;
   estimated_duration_mins?: number;
   caller_first_name?: string | null;
+  caller_middle_name?: string | null;
   caller_last_name?: string | null;
 }
 
@@ -146,6 +151,7 @@ export interface AuditLog {
   ip_address?: string | null;
   created_at: string;
   first_name?: string | null;
+  middle_name?: string | null;
   last_name?: string | null;
   email?: string | null;
   role?: string | null;

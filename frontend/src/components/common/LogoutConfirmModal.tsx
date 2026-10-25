@@ -50,7 +50,7 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-1">
                 <p className="text-xs font-bold text-slate-800 truncate">
-                  {user.first_name} {user.last_name}
+                  {user.first_name} {user.middle_name ? `${user.middle_name} ` : ''}{user.last_name}
                 </p>
                 <span
                   className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md ${

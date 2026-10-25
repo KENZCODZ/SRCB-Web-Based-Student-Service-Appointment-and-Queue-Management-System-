@@ -244,8 +244,8 @@ export const AdminDashboard: React.FC = () => {
                 key={counter.service_id}
                 className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs hover:border-brand-200 transition"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
                     <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                       {counter.service_code}
                     </span>
@@ -256,9 +256,22 @@ export const AdminDashboard: React.FC = () => {
                       {counter.location_or_counter}
                     </p>
                   </div>
-                  <div className="text-right">
-                    <span className="text-xs font-black text-brand-700 bg-brand-50 px-2 py-1 rounded-lg">
-                      {counter.waiting_count} waiting
+                  <div className="flex-shrink-0 pt-0.5">
+                    <span
+                      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap border shadow-2xs transition-colors ${
+                        counter.waiting_count > 0
+                          ? 'bg-amber-50 text-amber-800 border-amber-200/80'
+                          : 'bg-slate-50 text-slate-500 border-slate-200/70'
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                          counter.waiting_count > 0
+                            ? 'bg-amber-500 animate-pulse'
+                            : 'bg-slate-400'
+                        }`}
+                      />
+                      <span>{counter.waiting_count} waiting</span>
                     </span>
                   </div>
                 </div>
@@ -328,7 +341,7 @@ export const AdminDashboard: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <strong className="text-xs text-slate-900 font-semibold">
-                          {ticket.first_name} {ticket.last_name}
+                          {ticket.first_name} {ticket.middle_name ? `${ticket.middle_name} ` : ''}{ticket.last_name}
                         </strong>
                         <span className="text-[10px] text-slate-400 font-mono">
                           {ticket.student_id_number}
@@ -408,7 +421,7 @@ export const AdminDashboard: React.FC = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <strong className="text-xs text-slate-900 font-semibold">
-                          {apt.first_name} {apt.last_name}
+                          {apt.first_name} {apt.middle_name ? `${apt.middle_name} ` : ''}{apt.last_name}
                         </strong>
                         <span className="text-[10px] text-slate-400 font-mono">
                           {apt.appointment_code}

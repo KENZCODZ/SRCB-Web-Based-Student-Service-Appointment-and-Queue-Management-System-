@@ -10,6 +10,7 @@ class AuthService {
     public static function registerStudent(array $data): array {
         $studentId = trim($data['student_id_number'] ?? '');
         $firstName = trim($data['first_name'] ?? '');
+        $middleName = trim($data['middle_name'] ?? '');
         $lastName = trim($data['last_name'] ?? '');
         $email = strtolower(trim($data['email'] ?? ''));
         $password = $data['password'] ?? '';
@@ -58,13 +59,14 @@ class AuthService {
         $passwordHash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]);
 
         $insertStmt = $db->prepare("
-            INSERT INTO users (student_id_number, first_name, last_name, email, password_hash, role, contact_number, department_or_course, year_level, is_active, created_at)
-            VALUES (:student_id, :first_name, :last_name, :email, :password_hash, 'student', :contact_number, :course, :year_level, 1, NOW())
+            INSERT INTO users (student_id_number, first_name, middle_name, last_name, email, password_hash, role, contact_number, department_or_course, year_level, is_active, created_at)
+            VALUES (:student_id, :first_name, :middle_name, :last_name, :email, :password_hash, 'student', :contact_number, :course, :year_level, 1, NOW())
         ");
 
         $insertStmt->execute([
             'student_id'     => $studentId,
             'first_name'     => $firstName,
+            'middle_name'    => $middleName ?: null,
             'last_name'      => $lastName,
             'email'          => $email,
             'password_hash'  => $passwordHash,
@@ -85,6 +87,7 @@ class AuthService {
             'id'                   => $userId,
             'student_id_number'    => $studentId,
             'first_name'           => $firstName,
+            'middle_name'          => $middleName ?: null,
             'last_name'            => $lastName,
             'email'                => $email,
             'role'                 => 'student',
@@ -113,7 +116,7 @@ class AuthService {
         $db = Database::getConnection();
         // Support login by either email or student_id_number
         $stmt = $db->prepare("
-            SELECT id, student_id_number, first_name, last_name, email, password_hash, role, contact_number, department_or_course, year_level, is_active 
+            SELECT id, student_id_number, first_name, middle_name, last_name, email, password_hash, role, contact_number, department_or_course, year_level, is_active 
             FROM users 
             WHERE (email = :id_email OR student_id_number = :id_student) 
             LIMIT 1
@@ -156,7 +159,7 @@ class AuthService {
     public static function getUserProfile(int $userId): array {
         $db = Database::getConnection();
         $stmt = $db->prepare("
-            SELECT id, student_id_number, first_name, last_name, email, role, contact_number, department_or_course, year_level, is_active, last_login_at, created_at 
+            SELECT id, student_id_number, first_name, middle_name, last_name, email, role, contact_number, department_or_course, year_level, is_active, last_login_at, created_at 
             FROM users 
             WHERE id = :id 
             LIMIT 1
@@ -176,6 +179,7 @@ class AuthService {
         $stmt = $db->prepare("
             UPDATE users 
             SET first_name = :first_name,
+                middle_name = :middle_name,
                 last_name = :last_name,
                 contact_number = :contact_number,
                 department_or_course = :course,
@@ -185,6 +189,7 @@ class AuthService {
 
         $stmt->execute([
             'first_name'     => trim($data['first_name']),
+            'middle_name'    => trim($data['middle_name'] ?? '') ?: null,
             'last_name'      => trim($data['last_name']),
             'contact_number' => trim($data['contact_number'] ?? ''),
             'course'         => trim($data['department_or_course'] ?? ''),

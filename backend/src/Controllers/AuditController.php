@@ -14,7 +14,7 @@ class AuditController {
 
         $db = Database::getConnection();
         $sql = "
-            SELECT a.*, u.first_name, u.last_name, u.email, u.role
+            SELECT a.*, u.first_name, u.middle_name, u.last_name, u.email, u.role
             FROM audit_logs a
             LEFT JOIN users u ON a.user_id = u.id
             WHERE 1=1

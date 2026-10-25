@@ -13,7 +13,7 @@ class UserController {
         $search = $request->getQuery('search');
 
         $db = Database::getConnection();
-        $sql = "SELECT id, student_id_number, first_name, last_name, email, role, contact_number, department_or_course, year_level, is_active, last_login_at, created_at FROM users WHERE 1=1";
+        $sql = "SELECT id, student_id_number, first_name, middle_name, last_name, email, role, contact_number, department_or_course, year_level, is_active, last_login_at, created_at FROM users WHERE 1=1";
         $params = [];
 
         if ($role) {
@@ -22,7 +22,7 @@ class UserController {
         }
 
         if ($search) {
-            $sql .= " AND (email LIKE :search OR first_name LIKE :search OR last_name LIKE :search OR student_id_number LIKE :search)";
+            $sql .= " AND (email LIKE :search OR first_name LIKE :search OR middle_name LIKE :search OR last_name LIKE :search OR student_id_number LIKE :search)";
             $params['search'] = '%' . $search . '%';
         }
 
@@ -41,6 +41,7 @@ class UserController {
 
         $email = strtolower(trim($body['email'] ?? ''));
         $firstName = trim($body['first_name'] ?? '');
+        $middleName = trim($body['middle_name'] ?? '');
         $lastName = trim($body['last_name'] ?? '');
         $role = trim($body['role'] ?? 'student');
         $password = $body['password'] ?? 'password123';
@@ -65,13 +66,14 @@ class UserController {
         $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]);
 
         $stmt = $db->prepare("
-            INSERT INTO users (student_id_number, first_name, last_name, email, password_hash, role, contact_number, department_or_course, year_level, is_active, created_at)
-            VALUES (:student_id, :first_name, :last_name, :email, :password_hash, :role, :contact, :course, :year_level, 1, NOW())
+            INSERT INTO users (student_id_number, first_name, middle_name, last_name, email, password_hash, role, contact_number, department_or_course, year_level, is_active, created_at)
+            VALUES (:student_id, :first_name, :middle_name, :last_name, :email, :password_hash, :role, :contact, :course, :year_level, 1, NOW())
         ");
 
         $stmt->execute([
             'student_id'    => $studentId ?: null,
             'first_name'    => $firstName,
+            'middle_name'   => $middleName ?: null,
             'last_name'     => $lastName,
             'email'         => $email,
             'password_hash' => $hash,
@@ -120,6 +122,7 @@ class UserController {
         }
 
         $firstName = trim($body['first_name'] ?? $user['first_name']);
+        $middleName = array_key_exists('middle_name', $body) ? trim($body['middle_name'] ?? '') : ($user['middle_name'] ?? null);
         $lastName = trim($body['last_name'] ?? $user['last_name']);
         $role = trim($body['role'] ?? $user['role']);
         $contact = trim($body['contact_number'] ?? $user['contact_number'] ?? '');
@@ -131,16 +134,17 @@ class UserController {
             Response::error('Invalid account role.', 422);
         }
 
-        $sql = "UPDATE users SET first_name = :first_name, last_name = :last_name, role = :role, contact_number = :contact, department_or_course = :dept, student_id_number = :student_id, year_level = :year_level";
+        $sql = "UPDATE users SET first_name = :first_name, middle_name = :middle_name, last_name = :last_name, role = :role, contact_number = :contact, department_or_course = :dept, student_id_number = :student_id, year_level = :year_level";
         $sqlParams = [
-            'first_name' => $firstName,
-            'last_name'  => $lastName,
-            'role'       => $role,
-            'contact'    => $contact ?: null,
-            'dept'       => $departmentOrCourse ?: null,
-            'student_id' => $studentId ?: null,
-            'year_level' => $yearLevel ?: null,
-            'id'         => $id
+            'first_name'  => $firstName,
+            'middle_name' => $middleName ?: null,
+            'last_name'   => $lastName,
+            'role'        => $role,
+            'contact'     => $contact ?: null,
+            'dept'        => $departmentOrCourse ?: null,
+            'student_id'  => $studentId ?: null,
+            'year_level'  => $yearLevel ?: null,
+            'id'          => $id
         ];
 
         if (!empty($body['password'])) {

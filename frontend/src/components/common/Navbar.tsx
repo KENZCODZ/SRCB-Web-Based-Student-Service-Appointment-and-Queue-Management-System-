@@ -66,7 +66,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 </div>
                 <div className="hidden md:block">
                   <p className="text-xs font-bold text-slate-800 leading-tight">
-                    {user.first_name} {user.last_name}
+                    {user.first_name} {user.middle_name ? `${user.middle_name} ` : ''}{user.last_name}
                   </p>
                   <p className="text-[10px] text-slate-400 capitalize flex items-center gap-1">
                     {isAdmin && <Shield className="w-3 h-3 text-purple-600" />}

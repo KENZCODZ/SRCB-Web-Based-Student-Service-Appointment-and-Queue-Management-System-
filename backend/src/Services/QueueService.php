@@ -77,9 +77,9 @@ class QueueService {
         $db = Database::getConnection();
         $stmt = $db->prepare("
             SELECT q.*, 
-                   u.student_id_number, u.first_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
+                   u.student_id_number, u.first_name, u.middle_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter, s.estimated_duration_mins,
-                   c.first_name as caller_first_name, c.last_name as caller_last_name
+                   c.first_name as caller_first_name, c.middle_name as caller_middle_name, c.last_name as caller_last_name
             FROM queue_entries q
             JOIN users u ON q.user_id = u.id
             JOIN services s ON q.service_id = s.id
@@ -124,9 +124,9 @@ class QueueService {
         
         $stmt = $db->prepare("
             SELECT q.*, 
-                   u.student_id_number, u.first_name, u.last_name, u.department_or_course, u.year_level,
+                   u.student_id_number, u.first_name, u.middle_name, u.last_name, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.location_or_counter,
-                   c.first_name as caller_first_name, c.last_name as caller_last_name
+                   c.first_name as caller_first_name, c.middle_name as caller_middle_name, c.last_name as caller_last_name
             FROM queue_entries q
             JOIN users u ON q.user_id = u.id
             JOIN services s ON q.service_id = s.id
@@ -325,11 +325,21 @@ class QueueService {
         $waitingStmt->execute(['date' => $today]);
         $servicesWaiting = $waitingStmt->fetchAll(PDO::FETCH_ASSOC);
 
+        // Distinct active registered offices offering queue services
+        $officesStmt = $db->query("
+            SELECT DISTINCT category 
+            FROM services 
+            WHERE service_type = 'queue' AND is_active = 1 AND category IS NOT NULL AND TRIM(category) != ''
+            ORDER BY category ASC
+        ");
+        $registeredOffices = $officesStmt->fetchAll(PDO::FETCH_COLUMN);
+
         return [
-            'now_serving'      => $nowServing,
-            'services_summary' => $servicesWaiting,
-            'server_time'      => date('Y-m-d H:i:s'),
-            'date_formatted'   => date('l, F d, Y')
+            'now_serving'        => $nowServing,
+            'services_summary'   => $servicesWaiting,
+            'registered_offices' => $registeredOffices,
+            'server_time'        => date('Y-m-d H:i:s'),
+            'date_formatted'     => date('l, F d, Y')
         ];
     }
 }

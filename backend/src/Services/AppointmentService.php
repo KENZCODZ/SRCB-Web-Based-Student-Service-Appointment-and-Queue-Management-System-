@@ -93,9 +93,9 @@ class AppointmentService {
         $db = Database::getConnection();
         $sql = "
             SELECT a.*, 
-                   u.student_id_number, u.first_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
+                   u.student_id_number, u.first_name, u.middle_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter, s.requirements,
-                   p.first_name as processor_first_name, p.last_name as processor_last_name
+                   p.first_name as processor_first_name, p.middle_name as processor_middle_name, p.last_name as processor_last_name
             FROM appointments a
             JOIN users u ON a.user_id = u.id
             JOIN services s ON a.service_id = s.id
@@ -146,7 +146,7 @@ class AppointmentService {
         }
 
         if (!empty($filters['search'])) {
-            $sql .= " AND (a.appointment_code LIKE :search OR u.student_id_number LIKE :search OR u.first_name LIKE :search OR u.last_name LIKE :search)";
+            $sql .= " AND (a.appointment_code LIKE :search OR u.student_id_number LIKE :search OR u.first_name LIKE :search OR u.middle_name LIKE :search OR u.last_name LIKE :search)";
             $params['search'] = '%' . $filters['search'] . '%';
         }
 
@@ -161,9 +161,9 @@ class AppointmentService {
         $db = Database::getConnection();
         $stmt = $db->prepare("
             SELECT a.*, 
-                   u.student_id_number, u.first_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
+                   u.student_id_number, u.first_name, u.middle_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter, s.requirements,
-                   p.first_name as processor_first_name, p.last_name as processor_last_name
+                   p.first_name as processor_first_name, p.middle_name as processor_middle_name, p.last_name as processor_last_name
             FROM appointments a
             JOIN users u ON a.user_id = u.id
             JOIN services s ON a.service_id = s.id
@@ -254,9 +254,10 @@ class AppointmentService {
         $updatedAppointment = self::getAppointmentById($id);
 
         $studentData = [
-            'first_name' => $appointment['first_name'],
-            'last_name'  => $appointment['last_name'],
-            'email'      => $appointment['student_email']
+            'first_name'  => $appointment['first_name'],
+            'middle_name' => $appointment['middle_name'] ?? null,
+            'last_name'   => $appointment['last_name'],
+            'email'       => $appointment['student_email']
         ];
 
         $serviceData = [

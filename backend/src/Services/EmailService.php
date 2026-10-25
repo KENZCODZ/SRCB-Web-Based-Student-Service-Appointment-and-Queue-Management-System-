@@ -249,6 +249,7 @@ HTML;
         $timeFormatted = date('h:i A', strtotime($appointment['start_time'])) . ' - ' . date('h:i A', strtotime($appointment['end_time']));
         $location = htmlspecialchars($service['location_or_counter'] ?? 'Designated Office Window');
         $requirements = htmlspecialchars($service['requirements'] ?? 'Valid Student ID');
+        $fullName = trim($student['first_name'] . (!empty($student['middle_name']) ? ' ' . $student['middle_name'] : '') . ' ' . $student['last_name']);
 
         $body = <<<HTML
         <h2>Hello {$student['first_name']},</h2>
@@ -267,12 +268,13 @@ HTML;
 HTML;
 
         $html = self::templateWrapper("Appointment Approved - {$appointment['appointment_code']}", $body);
-        return self::send($student['email'], "{$student['first_name']} {$student['last_name']}", "Appointment Confirmed: {$service['name']} ({$appointment['appointment_code']})", $html, 'appointment_approved', $appointment);
+        return self::send($student['email'], $fullName, "Appointment Confirmed: {$service['name']} ({$appointment['appointment_code']})", $html, 'appointment_approved', $appointment);
     }
 
     public static function sendAppointmentRejected(array $appointment, array $student, array $service, string $reason): bool {
         $dateFormatted = date('F d, Y', strtotime($appointment['appointment_date']));
         $reasonHtml = htmlspecialchars($reason);
+        $fullName = trim($student['first_name'] . (!empty($student['middle_name']) ? ' ' . $student['middle_name'] : '') . ' ' . $student['last_name']);
 
         $body = <<<HTML
         <h2>Hello {$student['first_name']},</h2>
@@ -288,13 +290,14 @@ HTML;
 HTML;
 
         $html = self::templateWrapper("Appointment Update - {$appointment['appointment_code']}", $body);
-        return self::send($student['email'], "{$student['first_name']} {$student['last_name']}", "Update Regarding Your Appointment: {$appointment['appointment_code']}", $html, 'appointment_rejected', $appointment);
+        return self::send($student['email'], $fullName, "Update Regarding Your Appointment: {$appointment['appointment_code']}", $html, 'appointment_rejected', $appointment);
     }
 
     public static function sendAppointmentRescheduled(array $appointment, array $student, array $service, string $notes): bool {
         $dateFormatted = date('F d, Y', strtotime($appointment['appointment_date']));
         $timeFormatted = date('h:i A', strtotime($appointment['start_time'])) . ' - ' . date('h:i A', strtotime($appointment['end_time']));
         $notesHtml = htmlspecialchars($notes);
+        $fullName = trim($student['first_name'] . (!empty($student['middle_name']) ? ' ' . $student['middle_name'] : '') . ' ' . $student['last_name']);
 
         $body = <<<HTML
         <h2>Hello {$student['first_name']},</h2>
@@ -313,6 +316,6 @@ HTML;
 HTML;
 
         $html = self::templateWrapper("Appointment Rescheduled - {$appointment['appointment_code']}", $body);
-        return self::send($student['email'], "{$student['first_name']} {$student['last_name']}", "Rescheduled: {$service['name']} ({$appointment['appointment_code']})", $html, 'appointment_rescheduled', $appointment);
+        return self::send($student['email'], $fullName, "Rescheduled: {$service['name']} ({$appointment['appointment_code']})", $html, 'appointment_rescheduled', $appointment);
     }
 }

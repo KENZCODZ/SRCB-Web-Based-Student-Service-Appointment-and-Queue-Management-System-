@@ -18,11 +18,25 @@ export const Profile: React.FC = () => {
 
   const [profileData, setProfileData] = useState({
     first_name: user?.first_name || '',
+    middle_name: user?.middle_name || '',
     last_name: user?.last_name || '',
     contact_number: user?.contact_number || '',
     department_or_course: user?.department_or_course || '',
     year_level: user?.year_level || '',
   });
+
+  React.useEffect(() => {
+    if (user) {
+      setProfileData({
+        first_name: user.first_name || '',
+        middle_name: user.middle_name || '',
+        last_name: user.last_name || '',
+        contact_number: user.contact_number || '',
+        department_or_course: user.department_or_course || '',
+        year_level: user.year_level || '',
+      });
+    }
+  }, [user]);
 
   const [passwordData, setPasswordData] = useState({
     current_password: '',
@@ -107,7 +121,7 @@ export const Profile: React.FC = () => {
 
           <div>
             <h2 className="text-lg font-bold text-slate-900">
-              {user?.first_name} {user?.last_name}
+              {user?.first_name} {user?.middle_name ? `${user.middle_name} ` : ''}{user?.last_name}
             </h2>
             <p className="text-xs text-slate-400 font-medium mt-0.5">{user?.email}</p>
           </div>
@@ -165,10 +179,10 @@ export const Profile: React.FC = () => {
             )}
 
             <form onSubmit={handleProfileSave} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    First Name
+                    First Name *
                   </label>
                   <input
                     type="text"
@@ -179,8 +193,23 @@ export const Profile: React.FC = () => {
                   />
                 </div>
                 <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                      Middle Name
+                    </label>
+                    <span className="text-[10px] text-slate-400 lowercase italic">optional</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={profileData.middle_name}
+                    onChange={(e) => setProfileData({ ...profileData, middle_name: e.target.value })}
+                    placeholder="Optional"
+                    className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+                  />
+                </div>
+                <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    Last Name
+                    Last Name *
                   </label>
                   <input
                     type="text"

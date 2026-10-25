@@ -190,9 +190,9 @@ class DashboardController {
         // 4. Live Active Queue Tickets Today (waiting, calling, serving)
         $liveQueuesSql = "
             SELECT q.*, 
-                   u.student_id_number, u.first_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
+                   u.student_id_number, u.first_name, u.middle_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter, s.estimated_duration_mins,
-                   c.first_name as caller_first_name, c.last_name as caller_last_name
+                   c.first_name as caller_first_name, c.middle_name as caller_middle_name, c.last_name as caller_last_name
             FROM queue_entries q
             JOIN users u ON q.user_id = u.id
             JOIN services s ON q.service_id = s.id
@@ -215,7 +215,7 @@ class DashboardController {
         // 5. Today's Appointments and Pending Action List
         $todayAptsSql = "
             SELECT a.*, 
-                   u.student_id_number, u.first_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
+                   u.student_id_number, u.first_name, u.middle_name, u.last_name, u.email as student_email, u.contact_number, u.department_or_course, u.year_level,
                    s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter
             FROM appointments a
             JOIN users u ON a.user_id = u.id
@@ -279,7 +279,7 @@ class DashboardController {
         // 7. Recent Transactions Completed Today
         $recentCompletedSql = "
             SELECT q.*, 
-                   u.student_id_number, u.first_name, u.last_name,
+                   u.student_id_number, u.first_name, u.middle_name, u.last_name,
                    s.name as service_name, s.code as service_code, s.location_or_counter
             FROM queue_entries q
             JOIN users u ON q.user_id = u.id

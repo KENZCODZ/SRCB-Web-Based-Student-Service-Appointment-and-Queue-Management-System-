@@ -118,7 +118,7 @@ export const AuditLogs: React.FC = () => {
                       <td className="py-4 px-6">
                         {log.email ? (
                           <div>
-                            <div className="font-bold text-slate-900">{log.first_name} {log.last_name}</div>
+                            <div className="font-bold text-slate-900">{log.first_name} {log.middle_name ? `${log.middle_name} ` : ''}{log.last_name}</div>
                             <div className="text-[11px] text-slate-400 capitalize">{log.role} • {log.email}</div>
                           </div>
                         ) : (

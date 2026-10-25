@@ -121,7 +121,7 @@ export const AppointmentManagement: React.FC = () => {
         admin_notes: approvalNotes.trim() || undefined,
       });
       setSuccessToast(
-        `Appointment ${approvingApt.appointment_code} for ${approvingApt.first_name} ${approvingApt.last_name} has been approved! Confirmation email dispatched to ${approvingApt.student_email}.`
+        `Appointment ${approvingApt.appointment_code} for ${approvingApt.first_name} ${approvingApt.middle_name ? `${approvingApt.middle_name} ` : ''}${approvingApt.last_name} has been approved! Confirmation email dispatched to ${approvingApt.student_email}.`
       );
       setApprovingApt(null);
       loadAppointments();
@@ -551,7 +551,7 @@ export const AppointmentManagement: React.FC = () => {
                       <div className="font-bold text-slate-900 text-xs mt-1 flex items-center gap-1.5">
                         <User className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
                         <span>
-                          {apt.first_name} {apt.last_name}
+                          {apt.first_name} {apt.middle_name ? `${apt.middle_name} ` : ''}{apt.last_name}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5 pl-5 flex items-center gap-1.5">
@@ -769,7 +769,7 @@ export const AppointmentManagement: React.FC = () => {
                 <div>
                   <span className="text-slate-400 block text-[11px]">Full Student Name</span>
                   <strong className="text-slate-800 text-sm">
-                    {approvingApt.first_name} {approvingApt.last_name}
+                    {approvingApt.first_name} {approvingApt.middle_name ? `${approvingApt.middle_name} ` : ''}{approvingApt.last_name}
                   </strong>
                 </div>
                 <div>
@@ -946,7 +946,7 @@ export const AppointmentManagement: React.FC = () => {
                 <div>
                   <span className="text-slate-400 block text-[11px]">Name</span>
                   <strong className="text-slate-800">
-                    {viewingApt.first_name} {viewingApt.last_name}
+                    {viewingApt.first_name} {viewingApt.middle_name ? `${viewingApt.middle_name} ` : ''}{viewingApt.last_name}
                   </strong>
                 </div>
                 <div>
@@ -1040,7 +1040,7 @@ export const AppointmentManagement: React.FC = () => {
         {completingApt && (
           <div className="space-y-4">
             <p className="text-xs text-slate-600">
-              Confirm that student <strong>{completingApt.first_name} {completingApt.last_name}</strong> attended and completed their scheduled transaction for{' '}
+              Confirm that student <strong>{completingApt.first_name} {completingApt.middle_name ? `${completingApt.middle_name} ` : ''}{completingApt.last_name}</strong> attended and completed their scheduled transaction for{' '}
               <strong>{completingApt.service_name}</strong>.
             </p>
 
@@ -1151,7 +1151,7 @@ export const AppointmentManagement: React.FC = () => {
           <p className="text-xs text-slate-500">
             Set the revised schedule for{' '}
             <strong>
-              {reschedulingApt?.first_name} {reschedulingApt?.last_name}
+              {reschedulingApt?.first_name} {reschedulingApt?.middle_name ? `${reschedulingApt.middle_name} ` : ''}{reschedulingApt?.last_name}
             </strong>
             . An email notification will be dispatched with the revised time.
           </p>

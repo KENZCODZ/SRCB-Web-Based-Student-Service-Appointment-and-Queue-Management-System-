@@ -24,7 +24,7 @@ class AuthMiddleware {
 
         // Fetch fresh user record from DB
         $db = Database::getConnection();
-        $stmt = $db->prepare("SELECT id, student_id_number, first_name, last_name, email, role, department_or_course, year_level, is_active FROM users WHERE id = :id LIMIT 1");
+        $stmt = $db->prepare("SELECT id, student_id_number, first_name, middle_name, last_name, email, role, department_or_course, year_level, is_active FROM users WHERE id = :id LIMIT 1");
         $stmt->execute(['id' => $payload['user_id']]);
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
 

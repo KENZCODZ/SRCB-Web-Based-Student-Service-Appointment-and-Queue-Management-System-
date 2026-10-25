@@ -73,6 +73,7 @@ export const UserManagement: React.FC = () => {
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
+    middle_name: '',
     last_name: '',
     role: 'staff' as UserRole,
     student_id_number: '',
@@ -89,6 +90,7 @@ export const UserManagement: React.FC = () => {
   // Form states for editing an existing account
   const [editFormData, setEditFormData] = useState({
     first_name: '',
+    middle_name: '',
     last_name: '',
     role: 'staff' as UserRole,
     student_id_number: '',
@@ -167,6 +169,7 @@ export const UserManagement: React.FC = () => {
       setFormData({
         email: '',
         first_name: '',
+        middle_name: '',
         last_name: '',
         role: 'staff',
         student_id_number: '',
@@ -194,6 +197,7 @@ export const UserManagement: React.FC = () => {
 
     setEditFormData({
       first_name: user.first_name || '',
+      middle_name: user.middle_name || '',
       last_name: user.last_name || '',
       role: user.role,
       student_id_number: user.student_id_number || '',
@@ -378,7 +382,7 @@ export const UserManagement: React.FC = () => {
                   <tr key={u.id} className="hover:bg-slate-50/80 transition">
                     <td className="py-4 px-6">
                       <div className="font-bold text-slate-900 text-sm">
-                        {u.first_name} {u.last_name}
+                        {u.first_name} {u.middle_name ? `${u.middle_name} ` : ''}{u.last_name}
                       </div>
                       <div className="text-slate-400 text-xs font-mono">
                         {u.email} {u.student_id_number ? `• ${u.student_id_number}` : ''}
@@ -482,7 +486,7 @@ export const UserManagement: React.FC = () => {
             </select>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                 First Name *
@@ -492,6 +496,21 @@ export const UserManagement: React.FC = () => {
                 required
                 value={formData.first_name}
                 onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+              />
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Middle Name
+                </label>
+                <span className="text-[10px] text-slate-400 lowercase italic">optional</span>
+              </div>
+              <input
+                type="text"
+                value={formData.middle_name}
+                onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
+                placeholder="Optional"
                 className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
               />
             </div>
@@ -708,7 +727,7 @@ export const UserManagement: React.FC = () => {
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
                   First Name *
@@ -718,6 +737,21 @@ export const UserManagement: React.FC = () => {
                   required
                   value={editFormData.first_name}
                   onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Middle Name
+                  </label>
+                  <span className="text-[10px] text-slate-400 lowercase italic">optional</span>
+                </div>
+                <input
+                  type="text"
+                  value={editFormData.middle_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, middle_name: e.target.value })}
+                  placeholder="Optional"
                   className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm"
                 />
               </div>
@@ -882,7 +916,7 @@ export const UserManagement: React.FC = () => {
                   Target User Account
                 </span>
                 <div className="text-base font-bold text-slate-900 mt-0.5">
-                  {togglingUser.first_name} {togglingUser.last_name}
+                  {togglingUser.first_name} {togglingUser.middle_name ? `${togglingUser.middle_name} ` : ''}{togglingUser.last_name}
                 </div>
                 <p className="text-xs text-slate-500 font-mono">
                   {togglingUser.email} {togglingUser.student_id_number ? `• ${togglingUser.student_id_number}` : ''}

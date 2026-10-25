@@ -14,6 +14,63 @@ import {
   Monitor
 } from 'lucide-react';
 
+/**
+ * Normalizes an office category name to a canonical key for comparison
+ */
+const getCanonicalOfficeKey = (category: string): string => {
+  if (!category) return '';
+  const c = category.trim().toLowerCase();
+  if (c === 'all') return 'all';
+  if (c.includes('finance') || c.includes('cashier')) return 'Finance';
+  if (c.includes('registrar')) return 'Registrar';
+  if (c.includes('it') || c.includes('information technology')) return 'IT Department';
+  if (c.includes('library')) return 'Library';
+  if (c.includes('guidance')) return 'Guidance';
+  if (c.includes('dean')) return 'Dean Office';
+  return category.trim();
+};
+
+/**
+ * Formats an office category for clean TV display without redundant "Office" suffixes
+ */
+const formatOfficeName = (category: string): string => {
+  if (!category) return '';
+  const trimmed = category.trim();
+  const lower = trimmed.toLowerCase();
+
+  if (lower.includes('finance') || lower.includes('cashier')) {
+    return 'Finance / Cashier';
+  }
+  if (lower === 'it' || lower === 'it department' || lower === 'information technology' || lower === 'information technology office') {
+    return 'IT Department';
+  }
+  if (lower === 'registrar' || lower === 'registrar office') {
+    return 'Registrar Office';
+  }
+  if (lower === 'library' || lower === 'library office') {
+    return 'Library Office';
+  }
+  if (lower === 'guidance' || lower === 'guidance office') {
+    return 'Guidance Office';
+  }
+  if (lower === 'dean' || lower === 'dean office' || lower === "dean's office") {
+    return 'Dean Office';
+  }
+
+  if (
+    lower.endsWith('office') ||
+    lower.endsWith('department') ||
+    lower.endsWith('center') ||
+    lower.endsWith('division') ||
+    lower.endsWith('bureau') ||
+    lower.endsWith('desk')
+  ) {
+    return trimmed;
+  }
+
+  return `${trimmed} Office`;
+};
+
 export const PublicDisplay: React.FC = () => {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -23,7 +80,9 @@ export const PublicDisplay: React.FC = () => {
   // Office filter from URL search params (e.g. ?office=Registrar or ?office=Finance)
   const initialOffice = () => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('office') || 'all';
+    const officeParam = params.get('office');
+    if (!officeParam || officeParam.toLowerCase() === 'all') return 'all';
+    return getCanonicalOfficeKey(officeParam);
   };
 
   const [selectedOffice, setSelectedOffice] = useState<string>(initialOffice);
@@ -77,39 +136,73 @@ export const PublicDisplay: React.FC = () => {
     }
   };
 
-  // Predefined office tabs and dynamic ones extracted from service summary
+  // Dynamically build office tabs exclusively from registered offices in the system
   const officeTabs = useMemo(() => {
-    const list = [
-      { key: 'all', label: 'All Offices', icon: Monitor },
-      { key: 'Registrar', label: 'Registrar Office', icon: Building2 },
-      { key: 'Finance', label: 'Finance / Cashier', icon: Building2 },
-      { key: 'Guidance', label: 'Guidance Office', icon: Building2 },
-      { key: 'IT', label: 'IT Department', icon: Building2 },
+    const tabs = [
+      { key: 'all', label: 'All Offices', icon: Monitor }
     ];
 
-    if (data?.services_summary) {
-      data.services_summary.forEach((svc: any) => {
-        if (svc.category && !list.some(tab => tab.key.toLowerCase() === svc.category.toLowerCase())) {
-          list.push({
-            key: svc.category,
-            label: `${svc.category} Office`,
-            icon: Building2
-          });
+    const distinctOffices = new Map<string, string>(); // canonicalKeyLower -> rawCategory
+
+    // 1. From data.registered_offices (provided by backend for active queue services)
+    if (Array.isArray(data?.registered_offices)) {
+      data.registered_offices.forEach((office: string) => {
+        if (office && typeof office === 'string') {
+          const key = getCanonicalOfficeKey(office);
+          if (key && !distinctOffices.has(key.toLowerCase())) {
+            distinctOffices.set(key.toLowerCase(), office);
+          }
         }
       });
     }
 
-    return list;
+    // 2. From services_summary (any active queue service categories)
+    if (Array.isArray(data?.services_summary)) {
+      data.services_summary.forEach((svc: any) => {
+        if (svc?.category) {
+          const key = getCanonicalOfficeKey(svc.category);
+          if (key && !distinctOffices.has(key.toLowerCase())) {
+            distinctOffices.set(key.toLowerCase(), svc.category);
+          }
+        }
+      });
+    }
+
+    // 3. From now_serving (active queue entries)
+    if (Array.isArray(data?.now_serving)) {
+      data.now_serving.forEach((ticket: any) => {
+        if (ticket?.service_category) {
+          const key = getCanonicalOfficeKey(ticket.service_category);
+          if (key && !distinctOffices.has(key.toLowerCase())) {
+            distinctOffices.set(key.toLowerCase(), ticket.service_category);
+          }
+        }
+      });
+    }
+
+    // Build the dynamic tabs and sort them alphabetically
+    const dynamicTabs = Array.from(distinctOffices.entries()).map(([_, rawName]) => {
+      const canonicalKey = getCanonicalOfficeKey(rawName);
+      return {
+        key: canonicalKey,
+        label: formatOfficeName(rawName),
+        icon: Building2
+      };
+    });
+
+    dynamicTabs.sort((a, b) => a.label.localeCompare(b.label));
+
+    return [...tabs, ...dynamicTabs];
   }, [data]);
 
   // Filter Now Serving tickets based on selected office
   const filteredNowServing = useMemo(() => {
     if (!data?.now_serving) return [];
     if (selectedOffice === 'all') return data.now_serving;
+    const selectedKey = getCanonicalOfficeKey(selectedOffice).toLowerCase();
     return data.now_serving.filter((ticket: any) => {
-      const cat = (ticket.service_category || '').toLowerCase();
-      const sel = selectedOffice.toLowerCase();
-      return cat.includes(sel) || (sel.includes('finance') && cat.includes('cashier'));
+      const ticketKey = getCanonicalOfficeKey(ticket.service_category || '').toLowerCase();
+      return ticketKey === selectedKey;
     });
   }, [data?.now_serving, selectedOffice]);
 
@@ -117,14 +210,17 @@ export const PublicDisplay: React.FC = () => {
   const filteredServicesSummary = useMemo(() => {
     if (!data?.services_summary) return [];
     if (selectedOffice === 'all') return data.services_summary;
+    const selectedKey = getCanonicalOfficeKey(selectedOffice).toLowerCase();
     return data.services_summary.filter((svc: any) => {
-      const cat = (svc.category || '').toLowerCase();
-      const sel = selectedOffice.toLowerCase();
-      return cat.includes(sel) || (sel.includes('finance') && cat.includes('cashier'));
+      const svcKey = getCanonicalOfficeKey(svc.category || '').toLowerCase();
+      return svcKey === selectedKey;
     });
   }, [data?.services_summary, selectedOffice]);
 
-  const activeOfficeLabel = officeTabs.find(t => t.key.toLowerCase() === selectedOffice.toLowerCase())?.label || 'All Offices';
+  const activeOfficeLabel = useMemo(() => {
+    const match = officeTabs.find(t => t.key.toLowerCase() === selectedOffice.toLowerCase());
+    return match ? match.label : formatOfficeName(selectedOffice);
+  }, [officeTabs, selectedOffice]);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white flex flex-col font-sans select-none">

@@ -36,6 +36,7 @@ CREATE TABLE `users` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `student_id_number` VARCHAR(50) NULL UNIQUE,
     `first_name` VARCHAR(100) NOT NULL,
+    `middle_name` VARCHAR(100) NULL,
     `last_name` VARCHAR(100) NOT NULL,
     `email` VARCHAR(150) NOT NULL UNIQUE,
     `password_hash` VARCHAR(255) NOT NULL,
