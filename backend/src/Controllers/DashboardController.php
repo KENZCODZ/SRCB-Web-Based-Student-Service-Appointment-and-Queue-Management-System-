@@ -157,6 +157,7 @@ class DashboardController {
                 COUNT(CASE WHEN q.status = 'serving' THEN 1 END) as currently_serving,
                 COUNT(CASE WHEN q.status = 'completed' THEN 1 END) as today_completed,
                 COUNT(CASE WHEN q.status = 'skipped' THEN 1 END) as today_skipped,
+                COUNT(CASE WHEN q.status = 'cancelled' THEN 1 END) as today_cancelled,
                 COUNT(*) as total_today_tickets
             FROM queue_entries q
             JOIN services s ON q.service_id = s.id

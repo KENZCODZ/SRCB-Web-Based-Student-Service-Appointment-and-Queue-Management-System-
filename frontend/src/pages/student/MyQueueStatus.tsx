@@ -279,17 +279,17 @@ export const MyQueueStatus: React.FC = () => {
                       Joined: <strong>{new Date(ticket.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</strong>
                     </span>
 
-                    {ticket.status === 'waiting' && (
+                    {(ticket.status === 'waiting' || ticket.status === 'calling' || ticket.status === 'serving') && (
                       <button
                         type="button"
                         onClick={() => {
                           setCancellingTicket(ticket);
                           setCancelError('');
                         }}
-                        className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2 py-1 rounded-lg hover:bg-rose-50 transition"
-                        title="Leave this queue"
+                        className="text-rose-600 hover:text-rose-800 font-semibold text-xs px-2.5 py-1 rounded-lg hover:bg-rose-50 transition border border-rose-200"
+                        title="Cancel this ticket anytime"
                       >
-                        Leave Queue
+                        Cancel Ticket
                       </button>
                     )}
                   </div>
@@ -304,7 +304,7 @@ export const MyQueueStatus: React.FC = () => {
       <Modal
         isOpen={!!cancellingTicket}
         onClose={() => setCancellingTicket(null)}
-        title="Leave Service Queue"
+        title="Cancel Queue Ticket"
         maxWidth="md"
       >
         {cancellingTicket && (
@@ -320,12 +320,15 @@ export const MyQueueStatus: React.FC = () => {
                 <p className="text-xs font-semibold text-slate-700">
                   {cancellingTicket.service_name}
                 </p>
+                <p className="text-[11px] text-slate-400">
+                  {cancellingTicket.location_or_counter}
+                </p>
               </div>
               <Badge status={cancellingTicket.status} />
             </div>
 
             <p className="text-xs text-slate-600 leading-relaxed">
-              Are you sure you want to leave this queue? Your ticket position will be surrendered, and other waiting students will move up in line.
+              Are you sure you want to cancel this ticket? Your place in line will be surrendered, and subsequent students will move ahead. You will be able to join another service queue immediately if needed.
             </p>
 
             {cancelError && (
@@ -350,7 +353,7 @@ export const MyQueueStatus: React.FC = () => {
                 className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-50"
               >
                 <XCircle className="w-4 h-4" />
-                <span>{cancelLoading ? 'Leaving...' : 'Yes, Leave Queue'}</span>
+                <span>{cancelLoading ? 'Cancelling...' : 'Yes, Cancel Ticket'}</span>
               </button>
             </div>
           </div>

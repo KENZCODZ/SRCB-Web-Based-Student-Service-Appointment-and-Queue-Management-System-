@@ -39,6 +39,8 @@ export const QueueManagement: React.FC = () => {
   // Skip (No-Show) Confirmation Modal State (Heuristic 5: Error Prevention)
   const [skippingTicket, setSkippingTicket] = useState<QueueEntry | null>(null);
   const [skipLoading, setSkipLoading] = useState(false);
+  const [cancellingTicketStaff, setCancellingTicketStaff] = useState<QueueEntry | null>(null);
+  const [cancelLoadingStaff, setCancelLoadingStaff] = useState(false);
 
   // Auto-dismiss toast message after 5 seconds (Heuristic 1: Visibility of System Status)
   useEffect(() => {
@@ -423,14 +425,23 @@ export const QueueManagement: React.FC = () => {
                         </td>
                         <td className="py-4 px-6 text-right space-x-1">
                           {t.status === 'waiting' && (
-                            <button
-                              onClick={() => {
-                                handleUpdateStatus(t.id, 'calling');
-                              }}
-                              className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition text-xs"
-                            >
-                              Call
-                            </button>
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                onClick={() => {
+                                  handleUpdateStatus(t.id, 'calling');
+                                }}
+                                className="px-3 py-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-bold rounded-lg transition text-xs"
+                              >
+                                Call
+                              </button>
+                              <button
+                                onClick={() => setCancellingTicketStaff(t)}
+                                className="px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold rounded-lg transition text-xs"
+                                title="Cancel ticket"
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           )}
                           {t.status === 'calling' && (
                             <button
@@ -519,6 +530,71 @@ export const QueueManagement: React.FC = () => {
               >
                 <UserX className="w-4 h-4" />
                 <span>{skipLoading ? 'Skipping...' : 'Confirm Skip (No-Show)'}</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* CONFIRM CANCEL TICKET MODAL (STAFF) */}
+      <Modal
+        isOpen={!!cancellingTicketStaff}
+        onClose={() => setCancellingTicketStaff(null)}
+        title="Confirm Ticket Cancellation"
+        maxWidth="md"
+      >
+        {cancellingTicketStaff && (
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Ticket to Cancel
+                </span>
+                <div className="text-3xl font-black font-mono text-slate-900">
+                  {cancellingTicketStaff.queue_number}
+                </div>
+                <p className="text-xs font-bold text-slate-800 mt-0.5">
+                  {cancellingTicketStaff.first_name} {cancellingTicketStaff.middle_name ? `${cancellingTicketStaff.middle_name} ` : ''}{cancellingTicketStaff.last_name}
+                </p>
+                <p className="text-[11px] text-slate-500 font-mono">
+                  ID: {cancellingTicketStaff.student_id_number || 'N/A'} • {cancellingTicketStaff.department_or_course || 'General'}
+                </p>
+              </div>
+              <Badge status={cancellingTicketStaff.status} />
+            </div>
+
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2.5">
+              <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <span>
+                Cancelling this ticket will remove it from the office active waiting line and update the public screen TV immediately.
+              </span>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCancellingTicketStaff(null)}
+                className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+              >
+                Keep Ticket Active
+              </button>
+              <button
+                type="button"
+                disabled={cancelLoadingStaff}
+                onClick={async () => {
+                  setCancelLoadingStaff(true);
+                  try {
+                    await handleUpdateStatus(cancellingTicketStaff.id, 'cancelled');
+                    setToastMessage(`Ticket ${cancellingTicketStaff.queue_number} has been cancelled.`);
+                    setCancellingTicketStaff(null);
+                  } finally {
+                    setCancelLoadingStaff(false);
+                  }
+                }}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                <X className="w-4 h-4" />
+                <span>{cancelLoadingStaff ? 'Cancelling...' : 'Confirm Cancellation'}</span>
               </button>
             </div>
           </div>

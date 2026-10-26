@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../services/api';
-import { Service, TimeSlot } from '../../types';
+import { Service, TimeSlot, QueueEntry } from '../../types';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Layers,
   Calendar,
@@ -15,7 +15,9 @@ import {
   AlertCircle,
   Sparkles,
   ArrowRight,
-  Info
+  Info,
+  AlertTriangle,
+  XCircle
 } from 'lucide-react';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -41,9 +43,13 @@ export const ServicesCatalog: React.FC = () => {
   const [bookingSuccess, setBookingSuccess] = useState<any>(null);
 
   // Queue Join State
+  const [activeTickets, setActiveTickets] = useState<QueueEntry[]>([]);
   const [queueModalService, setQueueModalService] = useState<Service | null>(null);
   const [queueLoading, setQueueLoading] = useState(false);
   const [queueError, setQueueError] = useState('');
+  const [cancellingTicket, setCancellingTicket] = useState<QueueEntry | null>(null);
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [switchLoading, setSwitchLoading] = useState(false);
 
   // Local-safe date string formatter (YYYY-MM-DD) avoiding UTC offset shifts
   function dateToString(d: Date): string {
@@ -96,8 +102,12 @@ export const ServicesCatalog: React.FC = () => {
 
   const loadServices = async () => {
     try {
-      const res = await api.getServices({ all: false });
-      setServices(res.data || []);
+      const [servicesRes, ticketsRes] = await Promise.all([
+        api.getServices({ all: false }),
+        api.getMyActiveTickets()
+      ]);
+      setServices(servicesRes.data || []);
+      setActiveTickets(ticketsRes.data || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -185,6 +195,40 @@ export const ServicesCatalog: React.FC = () => {
     }
   };
 
+  const handleConfirmCancelTicket = async () => {
+    if (!cancellingTicket) return;
+    setCancelLoading(true);
+    try {
+      await api.cancelQueueTicket(cancellingTicket.id);
+      setCancellingTicket(null);
+      await loadServices();
+    } catch (err: any) {
+      setQueueError(err.message || 'Failed to cancel queue ticket.');
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
+  const handleCancelAndJoinNew = async (newServiceId: number) => {
+    const currentTicket = activeTickets.find(
+      (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+    );
+    if (!currentTicket) return;
+
+    setSwitchLoading(true);
+    setQueueError('');
+    try {
+      await api.cancelQueueTicket(currentTicket.id);
+      await api.joinQueue(newServiceId);
+      setQueueModalService(null);
+      navigate('/queue');
+    } catch (err: any) {
+      setQueueError(err.message || 'Failed to switch queue service.');
+    } finally {
+      setSwitchLoading(false);
+    }
+  };
+
   // Filter logic
   const categories = ['all', ...Array.from(new Set(services.map((s) => s.category)))];
 
@@ -223,6 +267,49 @@ export const ServicesCatalog: React.FC = () => {
           />
         </div>
       </div>
+
+      {/* Active Ticket Banner */}
+      {(() => {
+        const activeTicket = activeTickets.find(
+          (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+        );
+        if (!activeTicket) return null;
+        return (
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-700 flex-shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <strong className="text-sm font-bold text-amber-950">
+                    Active Ticket in Line: #{activeTicket.queue_number}
+                  </strong>
+                  <Badge status={activeTicket.status} />
+                </div>
+                <p className="text-xs text-amber-900/80 mt-0.5">
+                  You are currently queued for <strong>{activeTicket.service_name}</strong> ({activeTicket.location_or_counter}). Students cannot join multiple lines at once. You may cancel your ticket anytime if you wish to switch.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto flex-shrink-0">
+              <Link
+                to="/queue"
+                className="px-3 py-1.5 rounded-xl bg-white text-slate-700 hover:bg-slate-50 font-bold text-xs border border-slate-200 transition shadow-2xs"
+              >
+                View Ticket
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCancellingTicket(activeTicket)}
+                className="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-2xs"
+              >
+                Cancel Ticket
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Tabs & Category Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
@@ -345,46 +432,83 @@ export const ServicesCatalog: React.FC = () => {
               </div>
 
               <div className="mt-5 pt-4 border-t border-slate-100">
-                {service.service_type === 'both' ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={() => handleOpenBooking(service)}
-                      className="py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
-                    >
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>Book</span>
-                    </button>
+                {(() => {
+                  const activeTicket = activeTickets.find(
+                    (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+                  );
+                  const isCurrentActiveQueueService = activeTicket && activeTicket.service_id === service.id;
+
+                  if (service.service_type === 'both') {
+                    return (
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleOpenBooking(service)}
+                          className="py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
+                        >
+                          <Calendar className="w-3.5 h-3.5" />
+                          <span>Book</span>
+                        </button>
+                        {isCurrentActiveQueueService ? (
+                          <Link
+                            to="/queue"
+                            className="py-2.5 px-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>In Line (#{activeTicket.queue_number})</span>
+                          </Link>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setQueueModalService(service);
+                              setQueueError('');
+                            }}
+                            className="py-2.5 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
+                          >
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>Queue</span>
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  if (service.service_type === 'appointment') {
+                    return (
+                      <button
+                        onClick={() => handleOpenBooking(service)}
+                        className="w-full py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        <span>Book Appointment</span>
+                      </button>
+                    );
+                  }
+
+                  if (isCurrentActiveQueueService) {
+                    return (
+                      <Link
+                        to="/queue"
+                        className="w-full py-2.5 px-4 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>In Line (#{activeTicket.queue_number})</span>
+                      </Link>
+                    );
+                  }
+
+                  return (
                     <button
                       onClick={() => {
                         setQueueModalService(service);
                         setQueueError('');
                       }}
-                      className="py-2.5 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-1.5 transition"
+                      className="w-full py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
                     >
-                      <Clock className="w-3.5 h-3.5" />
-                      <span>Queue</span>
+                      <Clock className="w-4 h-4" />
+                      <span>Join Queue Ticket</span>
                     </button>
-                  </div>
-                ) : service.service_type === 'appointment' ? (
-                  <button
-                    onClick={() => handleOpenBooking(service)}
-                    className="w-full py-2.5 px-4 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>Book Appointment</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      setQueueModalService(service);
-                      setQueueError('');
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition"
-                  >
-                    <Clock className="w-4 h-4" />
-                    <span>Join Queue Ticket</span>
-                  </button>
-                )}
+                  );
+                })()}
               </div>
             </div>
           ))}
@@ -600,53 +724,172 @@ export const ServicesCatalog: React.FC = () => {
         )}
       </Modal>
 
-      {/* JOIN QUEUE CONFIRMATION MODAL */}
+      {/* JOIN QUEUE CONFIRMATION & CONFLICT MODAL */}
       <Modal
         isOpen={!!queueModalService}
-        onClose={() => setQueueModalService(null)}
+        onClose={() => !queueLoading && !switchLoading && setQueueModalService(null)}
         title={`Join Walk-In Queue: ${queueModalService?.name || ''}`}
-        maxWidth="sm"
+        maxWidth="md"
       >
-        <div className="space-y-4">
-          {queueError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <span>{queueError}</span>
-            </div>
-          )}
+        {queueModalService && (() => {
+          const activeTicket = activeTickets.find(
+            (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+          );
 
-          <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs space-y-2">
-            <div className="flex justify-between">
-              <span className="text-slate-400">Target Counter:</span>
-              <strong className="text-slate-900">{queueModalService?.location_or_counter || 'Window Desk'}</strong>
+          if (activeTicket) {
+            return (
+              <div className="space-y-4">
+                <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl space-y-2">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    <span>Active Ticket Already in Line</span>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-amber-200/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Current Ticket
+                      </span>
+                      <div className="text-xl font-black font-mono text-slate-900">
+                        {activeTicket.queue_number}
+                      </div>
+                      <p className="text-xs font-semibold text-slate-700">
+                        {activeTicket.service_name} • {activeTicket.location_or_counter}
+                      </p>
+                    </div>
+                    <Badge status={activeTicket.status} />
+                  </div>
+                  <p className="text-xs text-amber-900/80 leading-relaxed pt-1">
+                    To maintain fair queue service, each student can only hold one active ticket in line at a time. Would you like to cancel your current ticket to join <strong>{queueModalService.name}</strong>, or keep your place?
+                  </p>
+                </div>
+
+                {queueError && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{queueError}</span>
+                  </div>
+                )}
+
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    disabled={switchLoading}
+                    onClick={() => setQueueModalService(null)}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+                  >
+                    Keep Current Ticket
+                  </button>
+                  <button
+                    type="button"
+                    disabled={switchLoading}
+                    onClick={() => handleCancelAndJoinNew(queueModalService.id)}
+                    className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition disabled:opacity-50"
+                  >
+                    <XCircle className="w-4 h-4" />
+                    <span>{switchLoading ? 'Switching Queues...' : `Cancel #${activeTicket.queue_number} & Join ${queueModalService.code}`}</span>
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <div className="space-y-4">
+              {queueError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                  <span>{queueError}</span>
+                </div>
+              )}
+
+              <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-xs space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Target Counter:</span>
+                  <strong className="text-slate-900">{queueModalService?.location_or_counter || 'Window Desk'}</strong>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Est. Serving Time:</span>
+                  <strong className="text-slate-900">~{queueModalService?.estimated_duration_mins} mins</strong>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-500">
+                A digital queue ticket will be issued. You will receive real-time notifications when your ticket is called. You may cancel your ticket anytime if your plans change.
+              </p>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setQueueModalService(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleJoinQueue}
+                  disabled={queueLoading}
+                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
+                >
+                  {queueLoading ? 'Generating Ticket...' : 'Get Queue Ticket'}
+                </button>
+              </div>
             </div>
-            <div className="flex justify-between">
-              <span className="text-slate-400">Est. Serving Time:</span>
-              <strong className="text-slate-900">~{queueModalService?.estimated_duration_mins} mins</strong>
+          );
+        })()}
+      </Modal>
+
+      {/* CONFIRM TICKET CANCELLATION MODAL */}
+      <Modal
+        isOpen={!!cancellingTicket}
+        onClose={() => !cancelLoading && setCancellingTicket(null)}
+        title="Cancel Queue Ticket"
+        maxWidth="md"
+      >
+        {cancellingTicket && (
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Ticket to Cancel
+                </span>
+                <div className="text-2xl font-black font-mono text-slate-900">
+                  {cancellingTicket.queue_number}
+                </div>
+                <p className="text-xs font-semibold text-slate-700">
+                  {cancellingTicket.service_name}
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  {cancellingTicket.location_or_counter}
+                </p>
+              </div>
+              <Badge status={cancellingTicket.status} />
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to cancel this ticket? Your place in line will be surrendered, and subsequent students will move ahead.
+            </p>
+
+            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
+              <button
+                type="button"
+                disabled={cancelLoading}
+                onClick={() => setCancellingTicket(null)}
+                className="px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+              >
+                Keep My Place
+              </button>
+              <button
+                type="button"
+                disabled={cancelLoading}
+                onClick={handleConfirmCancelTicket}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                <XCircle className="w-4 h-4" />
+                <span>{cancelLoading ? 'Cancelling...' : 'Yes, Cancel Ticket'}</span>
+              </button>
             </div>
           </div>
-
-          <p className="text-xs text-slate-500">
-            A digital queue ticket will be issued. You will receive real-time notifications when your ticket is called.
-          </p>
-
-          <div className="pt-2 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={() => setQueueModalService(null)}
-              className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleJoinQueue}
-              disabled={queueLoading}
-              className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs shadow-sm transition disabled:opacity-50"
-            >
-              {queueLoading ? 'Generating Ticket...' : 'Get Queue Ticket'}
-            </button>
-          </div>
-        </div>
+        )}
       </Modal>
     </div>
   );

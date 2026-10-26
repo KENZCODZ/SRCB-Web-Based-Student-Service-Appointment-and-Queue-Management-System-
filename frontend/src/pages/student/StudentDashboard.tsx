@@ -19,7 +19,8 @@ import {
   UserCheck,
   Plus,
   Ticket,
-  XCircle
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
 
 export const StudentDashboard: React.FC = () => {
@@ -33,6 +34,8 @@ export const StudentDashboard: React.FC = () => {
   const [joiningServiceId, setJoiningServiceId] = useState<number | null>(null);
   const [cancellingTicket, setCancellingTicket] = useState<QueueEntry | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [conflictService, setConflictService] = useState<any | null>(null);
+  const [switchLoading, setSwitchLoading] = useState(false);
 
   const loadData = async (isManual = false) => {
     if (isManual) setRefreshing(true);
@@ -63,6 +66,22 @@ export const StudentDashboard: React.FC = () => {
   }, []);
 
   const handleQuickJoinQueue = async (serviceId: number) => {
+    // Check if student already holds any active ticket in line
+    const existingActiveTicket = activeTickets.find(
+      (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+    );
+    if (existingActiveTicket) {
+      if (existingActiveTicket.service_id === serviceId) {
+        setActionError(`You already hold Ticket #${existingActiveTicket.queue_number} for this service.`);
+        return;
+      }
+      const targetSvc = stats?.live_services?.find((s: any) => s.id === serviceId);
+      if (targetSvc) {
+        setConflictService(targetSvc);
+        return;
+      }
+    }
+
     setJoiningServiceId(serviceId);
     setActionError('');
     try {
@@ -72,6 +91,26 @@ export const StudentDashboard: React.FC = () => {
       setActionError(err.message || 'Failed to join queue.');
     } finally {
       setJoiningServiceId(null);
+    }
+  };
+
+  const handleCancelAndJoinNew = async (newServiceId: number) => {
+    const currentTicket = activeTickets.find(
+      (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+    );
+    if (!currentTicket) return;
+
+    setSwitchLoading(true);
+    setActionError('');
+    try {
+      await api.cancelQueueTicket(currentTicket.id);
+      await api.joinQueue(newServiceId);
+      setConflictService(null);
+      await loadData(true);
+    } catch (err: any) {
+      setActionError(err.message || 'Failed to switch queue service.');
+    } finally {
+      setSwitchLoading(false);
     }
   };
 
@@ -248,7 +287,7 @@ export const StudentDashboard: React.FC = () => {
                     Location: <strong>{ticket.location_or_counter}</strong>
                   </span>
                   <div className="flex items-center gap-3">
-                    {ticket.status === 'waiting' && (
+                    {(ticket.status === 'waiting' || ticket.status === 'calling' || ticket.status === 'serving') && (
                       <button
                         type="button"
                         onClick={() => setCancellingTicket(ticket)}
@@ -405,15 +444,34 @@ export const StudentDashboard: React.FC = () => {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      disabled={joiningServiceId === service.id}
-                      onClick={() => handleQuickJoinQueue(service.id)}
-                      className="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 flex items-center gap-1"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>{joiningServiceId === service.id ? 'Joining...' : 'Get Ticket'}</span>
-                    </button>
+                    {(() => {
+                      const userActiveTicket = activeTickets.find(
+                        (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+                      );
+                      if (userActiveTicket && userActiveTicket.service_id === service.id) {
+                        return (
+                          <Link
+                            to="/queue"
+                            className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 font-bold text-xs flex items-center gap-1 transition"
+                            title="You are currently queued for this service"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>In Line (#{userActiveTicket.queue_number})</span>
+                          </Link>
+                        );
+                      }
+                      return (
+                        <button
+                          type="button"
+                          disabled={joiningServiceId === service.id}
+                          onClick={() => handleQuickJoinQueue(service.id)}
+                          className="px-3 py-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-xs transition active:scale-95 disabled:opacity-50 flex items-center gap-1"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>{joiningServiceId === service.id ? 'Joining...' : 'Get Ticket'}</span>
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}
@@ -548,6 +606,69 @@ export const StudentDashboard: React.FC = () => {
             </div>
           </div>
         )}
+      </Modal>
+
+      {/* QUEUE CONFLICT / SWITCH CONFIRMATION MODAL */}
+      <Modal
+        isOpen={!!conflictService}
+        onClose={() => !switchLoading && setConflictService(null)}
+        title="Active Queue Ticket in Line"
+        maxWidth="md"
+      >
+        {conflictService && (() => {
+          const currentTicket = activeTickets.find(
+            (t) => t.status === 'waiting' || t.status === 'calling' || t.status === 'serving'
+          );
+          return (
+            <div className="space-y-4">
+              <div className="p-4 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-2">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                  <span>You already hold an active queue ticket</span>
+                </div>
+                {currentTicket && (
+                  <div className="bg-white p-3 rounded-xl border border-amber-200/60 flex items-center justify-between">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                        Current Ticket
+                      </span>
+                      <div className="text-xl font-black font-mono text-slate-900">
+                        {currentTicket.queue_number}
+                      </div>
+                      <p className="text-xs font-semibold text-slate-700">
+                        {currentTicket.service_name} • {currentTicket.location_or_counter}
+                      </p>
+                    </div>
+                    <Badge status={currentTicket.status} />
+                  </div>
+                )}
+                <p className="text-xs text-amber-900/80 leading-relaxed pt-1">
+                  Students may hold only one active queue ticket at a time. To join the line for <strong>{conflictService.name}</strong>, you can cancel your current ticket or keep your current place.
+                </p>
+              </div>
+
+              <div className="pt-2 flex flex-col sm:flex-row items-center justify-end gap-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={switchLoading}
+                  onClick={() => setConflictService(null)}
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold text-xs transition"
+                >
+                  Keep Current Ticket
+                </button>
+                <button
+                  type="button"
+                  disabled={switchLoading}
+                  onClick={() => handleCancelAndJoinNew(conflictService.id)}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition disabled:opacity-50"
+                >
+                  <XCircle className="w-4 h-4" />
+                  <span>{switchLoading ? 'Switching Queues...' : `Cancel #${currentTicket?.queue_number || ''} & Join ${conflictService.code}`}</span>
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </Modal>
     </div>
   );

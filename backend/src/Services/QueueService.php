@@ -15,20 +15,25 @@ class QueueService {
         $today = date('Y-m-d');
         $db = Database::getConnection();
 
-        // Check if student is already in queue for this service today with active status
+        // Check if student already holds any active queue ticket in line today
         $check = $db->prepare("
-            SELECT id, queue_number, status, sequence_number 
-            FROM queue_entries 
-            WHERE user_id = :user_id 
-              AND service_id = :service_id 
-              AND queue_date = :date 
-              AND status IN ('waiting', 'calling', 'serving') 
+            SELECT q.id, q.queue_number, q.status, q.sequence_number,
+                   s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter
+            FROM queue_entries q
+            JOIN services s ON q.service_id = s.id
+            WHERE q.user_id = :user_id 
+              AND q.queue_date = :date 
+              AND q.status IN ('waiting', 'calling', 'serving') 
             LIMIT 1
         ");
-        $check->execute(['user_id' => $userId, 'service_id' => $serviceId, 'date' => $today]);
+        $check->execute(['user_id' => $userId, 'date' => $today]);
         $existing = $check->fetch(PDO::FETCH_ASSOC);
         if ($existing) {
-            Response::error("You already hold an active queue ticket ({$existing['queue_number']}) with status '{$existing['status']}'.", 409);
+            Response::error(
+                "You already hold an active queue ticket ({$existing['queue_number']}) for '{$existing['service_name']}' with status '{$existing['status']}'. You cannot join another queue while you have a ticket in line. You may wait for your turn or cancel your existing ticket anytime.",
+                409,
+                ['existing_ticket' => $existing]
+            );
         }
 
         // Calculate next sequence number for this service today
@@ -232,6 +237,8 @@ class QueueService {
             NotificationService::create($ticket['user_id'], 'Service Completed', "Transaction for ticket {$ticket['queue_number']} has been completed. Thank you!", 'queue', $queueId);
         } elseif ($status === 'skipped') {
             NotificationService::create($ticket['user_id'], 'Ticket Skipped', "Ticket {$ticket['queue_number']} was marked as skipped due to no-show.", 'queue', $queueId);
+        } elseif ($status === 'cancelled') {
+            NotificationService::create($ticket['user_id'], 'Ticket Cancelled', "Ticket {$ticket['queue_number']} was cancelled by counter staff.", 'queue', $queueId);
         }
 
         AuditService::log($staffUserId, 'UPDATE_QUEUE_STATUS', 'queue', $queueId, ['status' => $status, 'ticket' => $ticket['queue_number']]);
@@ -247,15 +254,28 @@ class QueueService {
         if ((int)$ticket['user_id'] !== $userId) {
             Response::error('Unauthorized to cancel this queue ticket.', 403);
         }
-        if (!in_array($ticket['status'], ['waiting', 'calling'], true)) {
-            Response::error('Only waiting or active tickets can be cancelled.', 422);
+        if (!in_array($ticket['status'], ['waiting', 'calling', 'serving'], true)) {
+            Response::error("Ticket cannot be cancelled because it is already marked as '{$ticket['status']}'.", 422);
         }
 
         $db = Database::getConnection();
         $stmt = $db->prepare("UPDATE queue_entries SET status = 'cancelled' WHERE id = :id");
         $stmt->execute(['id' => $queueId]);
 
-        AuditService::log($userId, 'CANCEL_QUEUE_TICKET', 'queue', $queueId, ['ticket' => $ticket['queue_number']]);
+        // Create in-app notification confirming ticket cancellation
+        NotificationService::create(
+            $userId, 
+            'Queue Ticket Cancelled', 
+            "Your ticket {$ticket['queue_number']} for {$ticket['service_name']} ({$ticket['service_category']}) has been cancelled.", 
+            'queue', 
+            $queueId
+        );
+
+        AuditService::log($userId, 'CANCEL_QUEUE_TICKET', 'queue', $queueId, [
+            'ticket'  => $ticket['queue_number'],
+            'service' => $ticket['service_name'],
+            'office'  => $ticket['service_category']
+        ]);
 
         return self::getQueueEntryById($queueId) ?? [];
     }
@@ -264,7 +284,7 @@ class QueueService {
         $today = date('Y-m-d');
         $db = Database::getConnection();
         $stmt = $db->prepare("
-            SELECT q.*, s.name as service_name, s.code as service_code, s.location_or_counter, s.estimated_duration_mins
+            SELECT q.*, s.name as service_name, s.code as service_code, s.category as service_category, s.location_or_counter, s.estimated_duration_mins
             FROM queue_entries q
             JOIN services s ON q.service_id = s.id
             WHERE q.user_id = :user_id 
@@ -311,11 +331,19 @@ class QueueService {
         $activeStmt->execute(['date' => $today]);
         $nowServing = $activeStmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Upcoming Waiting summary per service
+        // Upcoming Waiting summary per service (accurately picking lowest sequence waiting student)
         $waitingStmt = $db->prepare("
             SELECT s.id as service_id, s.name as service_name, s.code as service_code, s.category,
                    COUNT(q.id) as total_waiting,
-                   MIN(q.queue_number) as next_in_line
+                   (
+                       SELECT q2.queue_number 
+                       FROM queue_entries q2 
+                       WHERE q2.service_id = s.id 
+                         AND q2.queue_date = :date 
+                         AND q2.status = 'waiting' 
+                       ORDER BY q2.sequence_number ASC 
+                       LIMIT 1
+                   ) as next_in_line
             FROM services s
             LEFT JOIN queue_entries q ON s.id = q.service_id AND q.queue_date = :date AND q.status = 'waiting'
             WHERE s.service_type IN ('queue', 'both') AND s.is_active = 1
