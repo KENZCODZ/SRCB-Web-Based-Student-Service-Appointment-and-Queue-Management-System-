@@ -29,11 +29,30 @@ export const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [activeDemo, setActiveDemo] = useState<string | null>(null);
+  const [isInputsActive, setIsInputsActive] = useState(false);
 
   const queryParams = new URLSearchParams(location.search);
   const expired = queryParams.get('expired');
   const loggedOutParam = queryParams.get('logged_out');
   const [loggedOutNotice, setLoggedOutNotice] = useState(Boolean(loggedOutParam));
+
+  // Security: Prevent browser autofill from repopulating credentials on logout or navigation
+  React.useEffect(() => {
+    setIdentifier('');
+    setPassword('');
+    setActiveDemo(null);
+    setIsInputsActive(false);
+
+    // Clear any DOM values if browser engine tries to inject cached credentials asynchronously
+    const timer = setTimeout(() => {
+      const idEl = document.getElementById('login-identifier') as HTMLInputElement | null;
+      const passEl = document.getElementById('login-password') as HTMLInputElement | null;
+      if (idEl) idEl.value = '';
+      if (passEl) passEl.value = '';
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [location.pathname, location.search]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +79,7 @@ export const Login: React.FC = () => {
   };
 
   const handleQuickDemoLogin = (role: 'admin' | 'staff' | 'student') => {
+    setIsInputsActive(true);
     setActiveDemo(role);
     if (role === 'admin') {
       setIdentifier('admin@srcb.edu.ph');
@@ -109,24 +129,30 @@ export const Login: React.FC = () => {
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-xl shadow-slate-200/70 border border-slate-200/70 p-6 sm:p-8">
           {/* Notifications */}
           {loggedOutNotice && (
-            <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl text-emerald-900 text-xs flex items-center justify-between gap-2 shadow-xs">
-              <div className="flex items-center gap-2.5">
-                <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-4 h-4" />
+            <div className="mb-5 p-3.5 bg-emerald-50 border border-emerald-200/80 rounded-2xl text-emerald-900 text-xs shadow-xs space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <strong className="font-semibold block text-emerald-950">Signed Out Securely</strong>
+                    <span className="text-[11px] text-emerald-700">Your session was closed and credentials cleared.</span>
+                  </div>
                 </div>
-                <div>
-                  <strong className="font-semibold block text-emerald-950">Signed Out Successfully</strong>
-                  <span className="text-[11px] text-emerald-700">Your session was safely closed.</span>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setLoggedOutNotice(false)}
+                  className="p-1 text-emerald-600 hover:text-emerald-900 hover:bg-emerald-100 rounded-lg transition"
+                  title="Dismiss message"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setLoggedOutNotice(false)}
-                className="p-1 text-emerald-600 hover:text-emerald-900 hover:bg-emerald-100 rounded-lg transition"
-                title="Dismiss message"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex items-center gap-1.5 pl-8 text-[11px] text-emerald-800 font-medium">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                <span>Autofill blocked to protect shared & public computer privacy.</span>
+              </div>
             </div>
           )}
 
@@ -145,57 +171,156 @@ export const Login: React.FC = () => {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form
+            onSubmit={handleSubmit}
+            autoComplete="off"
+            className="space-y-4"
+          >
+            {/* Decoy inputs to divert aggressive browser password managers and prevent autofill */}
+            <div className="sr-only" aria-hidden="true">
+              <input
+                type="text"
+                name="fake_username_prevent_autofill"
+                tabIndex={-1}
+                autoComplete="off"
+                readOnly
+              />
+              <input
+                type="password"
+                name="fake_password_prevent_autofill"
+                tabIndex={-1}
+                autoComplete="new-password"
+                readOnly
+              />
+            </div>
+
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Email Address or Student ID
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="login-identifier"
+                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider"
+                >
+                  Email Address or Student ID
+                </label>
+                {identifier && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier('');
+                      setActiveDemo(null);
+                    }}
+                    className="text-[10px] font-medium text-slate-400 hover:text-slate-600"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Mail className="w-4 h-4" />
                 </div>
                 <input
+                  id="login-identifier"
+                  name="eduqueue_identifier"
                   type="text"
                   required
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  readOnly={!isInputsActive}
+                  onFocus={() => setIsInputsActive(true)}
+                  onClick={() => setIsInputsActive(true)}
                   value={identifier}
                   onChange={(e) => {
                     setIdentifier(e.target.value);
                     setActiveDemo(null);
                   }}
                   placeholder="e.g. 2026-0001 or name@srcb.edu.ph"
-                  className="w-full pl-10 pr-4 py-2.5 sm:py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all"
+                  className="w-full pl-10 pr-9 py-2.5 sm:py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all"
                 />
+                {identifier && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIdentifier('');
+                      setActiveDemo(null);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition"
+                    title="Clear input"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor="login-password"
+                  className="block text-xs font-semibold text-slate-700 uppercase tracking-wider"
+                >
+                  Password
+                </label>
+                {password && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPassword('');
+                      setActiveDemo(null);
+                    }}
+                    className="text-[10px] font-medium text-slate-400 hover:text-slate-600"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <Lock className="w-4 h-4" />
                 </div>
                 <input
+                  id="login-password"
+                  name="eduqueue_security_pass"
                   type={showPassword ? 'text' : 'password'}
                   required
+                  autoComplete="new-password"
+                  readOnly={!isInputsActive}
+                  onFocus={() => setIsInputsActive(true)}
+                  onClick={() => setIsInputsActive(true)}
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
                     setActiveDemo(null);
                   }}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-11 py-2.5 sm:py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all"
+                  className="w-full pl-10 pr-16 py-2.5 sm:py-3 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-4 focus:ring-brand-500/10 focus:border-brand-600 transition-all"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 transition"
-                  title={showPassword ? 'Hide password' : 'Show password'}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+                <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center gap-1 text-slate-400">
+                  {password && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPassword('');
+                        setActiveDemo(null);
+                      }}
+                      className="p-1 hover:text-slate-600 transition rounded-lg hover:bg-slate-100"
+                      title="Clear password"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="p-1 hover:text-slate-600 transition rounded-lg hover:bg-slate-100"
+                    title={showPassword ? 'Hide password' : 'Show password'}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
             </div>
 

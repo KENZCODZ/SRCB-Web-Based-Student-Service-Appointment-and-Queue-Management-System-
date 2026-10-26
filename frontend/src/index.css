@@ -45,3 +45,33 @@
 .pulse-ring {
   animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 38s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+@keyframes call-glow {
+  0%, 100% {
+    box-shadow: 0 0 30px -5px rgba(245, 158, 11, 0.4), inset 0 0 15px -3px rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 50px 8px rgba(245, 158, 11, 0.7), inset 0 0 25px 0px rgba(245, 158, 11, 0.35);
+    border-color: rgba(251, 191, 36, 1);
+  }
+}
+
+.animate-call-glow {
+  animation: call-glow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

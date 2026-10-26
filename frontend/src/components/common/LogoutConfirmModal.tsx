@@ -72,7 +72,7 @@ export const LogoutConfirmModal: React.FC<LogoutConfirmModalProps> = ({
         )}
 
         <p className="text-xs text-slate-500 leading-relaxed px-1">
-          You will need your login credentials to access your dashboard again. Any unsaved input will be cleared.
+          You will need your login credentials to sign in again. For security, your session and saved inputs on this device will be cleared.
         </p>
 
         {/* Action Buttons (HCI Heuristic 3: User Control & Freedom) */}

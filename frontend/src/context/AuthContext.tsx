@@ -76,10 +76,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
-    await api.logout();
-    setUser(null);
-    setToken(null);
-    setIsLogoutModalOpen(false);
+    try {
+      await api.logout();
+    } finally {
+      localStorage.removeItem('eduqueue_token');
+      localStorage.removeItem('eduqueue_user');
+      sessionStorage.clear();
+      setUser(null);
+      setToken(null);
+      setIsLogoutModalOpen(false);
+    }
   };
 
   const updateUser = (updatedUser: User) => {
